@@ -3,6 +3,12 @@ This code checks:
 - that redis is running.
 - that expected queues exist
 - that expected workers are running.
+
+Usage:
+% cd /path/to/queue_checker/
+% source ../env/bin/activate                # for access to rqinfo
+% source ../venv_settings/env_settings.sh   # for access to settings
+% python ./queue_check.py
 """
 
 import logging, subprocess
@@ -15,8 +21,6 @@ log = logging.getLogger( '__name__' )
 
 
 expectation = {
-    'expected_queues': [ 'aa', 'bb', 'cc' ],
-    'expected_workers': [ 'xx', 'yy', 'zz']
 }
 
 def run_code():
