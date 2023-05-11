@@ -1,2 +1,7 @@
-click==7.1.2        # install this firsst -- compatible with current version of rq
+## Notes...
+## - removed `requirements.in` due to problens with `pip-tools` requiring a different version of `click`.
+## - this is a read-only app -- but whenever `rq` is upgraded for other apps, 
+##   it should be done for all apps at once since, I think, it saves data to redis in a different format.
+
+click==7.1.2        # install this first -- compatible with current version of rq
 rq==0.13.0          # newer versions require click 8
