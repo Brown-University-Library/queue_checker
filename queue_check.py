@@ -28,13 +28,13 @@ def run_code():
     Controller.
     Called by `if __name__ == '__main__':`
     """
-    output: str  = get_rqinfo()
+    output  = get_rqinfo()
     assert type(output) == str
-    data_dct: dict = parse_rqinfo( output )
+    data_dct = parse_rqinfo( output )
     return data_dct
 
 
-def parse_rqinfo( rq_output: str ) -> dict:
+def parse_rqinfo( rq_output: str ):
     """ 
     Parses rqinfo output into a dict.
     Called by run_code().
