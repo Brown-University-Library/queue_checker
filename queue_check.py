@@ -37,8 +37,10 @@ def run_code():
 def get_rqinfo() -> str:
     """
     Runs `rqinfo`, returns output.
+    - `--by-queue` returns the normal queue output, but shows workers associated with each queue.
+    - `--raw` doesn't return the summary line or the job-bar, just the basic data.
     """
-    result = subprocess.run(['rqinfo'], stdout=subprocess.PIPE)
+    result = subprocess.run(['rqinfo', '--by-queue', '--raw'], stdout=subprocess.PIPE)
     output = result.stdout.decode()
     assert type(output) == str
     log.debug( f'output, ``{output}``' )
