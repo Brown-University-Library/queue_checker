@@ -34,7 +34,7 @@ def run_code():
     return data_dct
 
 
-def parse_rqinfo( rq_output: str ):
+def parse_rqinfo( rq_output ):
     """ 
     Parses rqinfo output into a dict.
     Called by run_code().
@@ -84,7 +84,7 @@ def parse_rqinfo( rq_output: str ):
     return output
 
 
-def get_rqinfo() -> str:
+def get_rqinfo():
     """
     Runs `rqinfo`, returns output.
     - `--by-queue` returns the normal queue output, but shows workers associated with each queue.
