@@ -37,9 +37,11 @@ def run_code():
 def parse_rqinfo( rq_output: str ) -> dict:
     """ 
     Parses rqinfo output into a dict.
+    Called by run_code().
+    Doctest usage (w/env sourced): `% python -m doctest ./queue_check.py`
 
-    Usage:
-    >>> parse_rqinfo(
+    Example:
+    >>> result = parse_rqinfo(
     ...     'queue q_1 0\\n'
     ...     'queue q_2 0\\n'
     ...     'queue failed 333\\n'
@@ -47,7 +49,14 @@ def parse_rqinfo( rq_output: str ) -> dict:
     ...     'q_2: server.952 (idle)\\n'
     ...     'failed: –\\n'
     ... )
+    >>> result
     {'failed_count': 333, 'queues': ['q_1', 'q_2', 'failed'], 'workers_by_queue': {'q_1': ['server.968', 'server.952'], 'q_2': ['server.952'], 'failed': []}}
+    >>> pprint.pprint( result )
+    {'failed_count': 333,
+     'queues': ['q_1', 'q_2', 'failed'],
+     'workers_by_queue': {'failed': [],
+                          'q_1': ['server.968', 'server.952'],
+                          'q_2': ['server.952']}}
     """
     lines = rq_output.split('\n')
     log.debug( f'lines, ``{lines}``' )
@@ -75,7 +84,6 @@ def parse_rqinfo( rq_output: str ) -> dict:
     return output
 
 
-
 def get_rqinfo() -> str:
     """
     Runs `rqinfo`, returns output.
@@ -87,65 +95,6 @@ def get_rqinfo() -> str:
     assert type(output) == str
     log.debug( f'output, ``{output}``' )
     return output
-
-# def run_code():
-#     """
-#     Controller.
-#     Called by `if __name__ == '__main__':`
-#     """
-#     ( redis_check, queues, workers)  = get_rqinfo()
-#     assert type(redis_check) == str
-#     assert type(queues) == list
-#     assert type(workers) == list
-#     log.debug( f'redis check: ``{redis_check}``' )
-#     log.debug( f'queues: ``{queues}``' )
-#     log.debug( f'workers: ``{workers}``' )
-#     return_tuple = (redis_check, queues, workers)
-#     return return_tuple
-
-
-# def get_rqinfo():
-#     """
-#     Runs `rqinfo`, parses the output, and builds lists of queues and workers.
-#     """
-#     ## Run the rqinfo command and get the output
-#     result = subprocess.run(['rqinfo'], stdout=subprocess.PIPE)
-#     output = result.stdout.decode()
-
-#     ## Split the output into lines
-#     lines = output.split('\n')
-
-#     ## Initialize empty lists for queues and workers
-#     redis_check = 'init'
-#     queues = []
-#     workers = []
-
-#     # Iterate over each line in the output
-#     for (i, line) in enumerate(lines):
-#         ## check for redis-server connection error
-#         if i == 0:
-#             if '6379' in line and 'connection refused' in line.lower():  # `Error 111 connecting to localhost:6379. Connection refused.`
-#                 redis_check = 'redis_down'
-#                 break
-#             else:
-#                 redis_check = 'redis_ok'
-
-#         if line.strip() == '':
-#             continue
-
-#         ## If line contains queue info, add it to the queues list
-#         if '|' in line:
-#             queue_name = line.split('|')[0].strip()
-#             queues.append(queue_name)
-
-#         ## If line contains worker info, add it to the workers list
-#         if 'idle:' in line:
-#             worker_name = line.split(' ')[0].strip()
-#             workers.append(worker_name)
-
-#     return redis_check, queues, workers
-
-
 
 
 if __name__ == '__main__':
