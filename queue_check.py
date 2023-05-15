@@ -117,7 +117,7 @@ def send_email( message ):
 
     try:
         s = smtplib.SMTP( EMAIL_HOST, EMAIL_PORT )
-        body = f'datetime: `{str(datetime.datetime.now())}`\n\Some intro...\n\n{message}\n\n[END]'
+        body = f'datetime: `{str(datetime.datetime.now())}`\n\nSome intro...\n\n{message}\n\n[END]'
         eml = MIMEText( f'{body}' )
         eml['Subject'] = 'error found in parse-alma-exports logfile'
         eml['From'] = EMAIL_FROM
