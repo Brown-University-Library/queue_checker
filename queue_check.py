@@ -212,7 +212,8 @@ def send_email( message ):
     log.debug( f'message, ``{message}``' )
     EMAIL_HOST = os.environ['QCHKR__EMAIL_HOST']
     EMAIL_PORT = int( os.environ['QCHKR__EMAIL_HOST_PORT'] )  
-    EMAIL_FROM = os.environ['QCHKR__EMAIL_FROM']
+    # EMAIL_FROM = os.environ['QCHKR__EMAIL_FROM']
+    EMAIL_FROM = 'donotreply__rq_queue_checker@brown.edu'
     EMAIL_RECIPIENTS = json.loads( os.environ['QCHKR__EMAIL_RECIPIENTS_JSON'] )
     HOST = socket.gethostname()
     try:
