@@ -46,11 +46,14 @@ def run_code():
     data_dct = parse_rqinfo( output )                               ## parse `rqinfo` output
     assert type(data_dct) == dict
     evaluation_dct = evaluate_qdata( expectations, data_dct )       ## evaluate `rqinfo` output
+    assert type(evaluation_dct) == dict
     if evaluation_dct == {'queue_check': 'ok', 'worker_check': 'ok', 'failure_queue_check': 'ok'}:
         pass
     else:                                                           ## send email if necessary
         msg: str = build_email_message( expectations, evaluation_dct, data_dct )       
-        send_email( message=msg )                                   
+        send_email( message=msg )
+    # log.info( f'rqinfo output, ``{pprint.pformat(data_dct)}``' )
+    log.info( f'evaluation_dct, ``{pprint.pformat(evaluation_dct)}``' )
     return 
 
 
