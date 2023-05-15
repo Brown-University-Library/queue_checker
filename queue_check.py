@@ -49,6 +49,28 @@ def run_code():
 ## helper functions called by run_code() ----------------------------
 
 
+def evaluate_qdata( expectations, data_dct ):
+    """ 
+    Evaluates rqinfo output against expectation-data.
+    Called by run_code() 
+        
+    Example -- all ok:
+    >>> expectations_data = {'expected_queues': ['q1', 'q2'], 'expected_workers': [{'queue': 'q1', 'worker_count': 1}], 'permitted_failures': 0}
+    >>> rqinfo_data = {'failed_count': 0, 'queues': ['q_1', 'q_2', 'failed'], 'workers_by_queue': {'q_1': ['server.123'], 'q_2': ['server.234'], 'failed': []}}
+    >>> result = evaluate_qdata( expectations_data, rqinfo_data )
+    >>> result
+    {'queue_check': 'ok', 'worker_check': 'ok', 'failure_queue_check': 'ok'}
+    
+    Example -- problem:
+    >>> expectations_data = {'expected_queues': ['q1', 'q2', 'q3'], 'expected_workers': [{'queue': 'q1', 'worker_count': 1}, {'queue': 'q2', 'worker_count': 1}], 'permitted_failures': 0}
+    >>> rqinfo_data = {'failed_count': 1, 'queues': ['q_1', 'failed'], 'workers_by_queue': {'q_1': ['server.123'], 'failed': []}}
+    >>> result = evaluate_qdata( expectations_data, rqinfo_data )
+    >>> result
+    {'queue_check': 'fail', 'worker_check': 'fail', 'failure_queue_check': 'fail'}
+    """
+    return 'foo'
+
+
 def get_rqinfo() -> str:
     """ Runs `rqinfo`, returns output.
         - `--by-queue` returns the normal queue output, but shows workers associated with each queue.
