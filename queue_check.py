@@ -12,14 +12,13 @@ Usage:
 """
 
 import datetime, json, logging, os, pprint, smtplib, subprocess
-# from email.header import Header
-# from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 
+ENV_LOG_LEVEL = os.environ.get( 'QCHKR__LOG_LEVEL', 'DEBUG' )
+level_dct = { 'DEBUG': logging.DEBUG, 'INFO': logging.INFO, }
 logging.basicConfig(  # no file-logging for now
-    level=logging.DEBUG,
-    # level=logging.INFO,
+    level=level_dct[ENV_LOG_LEVEL],
     format='[%(asctime)s] %(levelname)s [%(module)s-%(funcName)s()::%(lineno)d] %(message)s',
     datefmt='%d/%b/%Y %H:%M:%S' )
 log = logging.getLogger( '__name__' )
