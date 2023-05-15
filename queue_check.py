@@ -1,21 +1,26 @@
 """
 This code checks:
-- that redis is running.
 - that expected queues exist
 - that expected workers are running.
+- that the failed-queue count is as expected.
 
 Usage:
 % cd /path/to/queue_checker/
 % source ../env/bin/activate                # for access to rqinfo
 % source ../venv_settings/env_settings.sh   # for access to settings
 % python ./queue_check.py
+
+Tests can be run via substituting for the above line:
+% python -m doctest ./queue_check.py
+(which will show no output if all tests pass) ...or...
+% python -m doctest -v ./queue_check.py
 """
 
 import datetime, json, logging, os, pprint, smtplib, subprocess
 from email.mime.text import MIMEText
 
 
-ENV_LOG_LEVEL = os.environ.get( 'QCHKR__LOG_LEVEL', 'DEBUG' )
+ENV_LOG_LEVEL = os.environ['QCHKR__LOG_LEVEL']
 level_dct = { 'DEBUG': logging.DEBUG, 'INFO': logging.INFO, }
 logging.basicConfig(  # no file-logging for now
     level=level_dct[ENV_LOG_LEVEL],
@@ -24,7 +29,7 @@ logging.basicConfig(  # no file-logging for now
 log = logging.getLogger( '__name__' )
 
 
-expectations = json.loads( os.environ['QCHKR__EXPECTATIONS_JSON'] )
+expectations: dict = json.loads( os.environ['QCHKR__EXPECTATIONS_JSON'] )
 log.debug( f'expectations, ``{pprint.pformat(expectations)}``' )    
 
 
@@ -36,16 +41,17 @@ def run_code():
     Controller.
     Called by dunder-main.
     """
-    output  = get_rqinfo()                                      ## run `rqinfo`
+    output  = get_rqinfo()                                          ## run `rqinfo`
     assert type(output) == str
-    data_dct = parse_rqinfo( output )                           ## parse `rqinfo` output
+    data_dct = parse_rqinfo( output )                               ## parse `rqinfo` output
     assert type(data_dct) == dict
-    evaluation_dct = evaluate_qdata( expectations, data_dct )   ## evaluate `rqinfo` output
+    evaluation_dct = evaluate_qdata( expectations, data_dct )       ## evaluate `rqinfo` output
     if evaluation_dct == {'queue_check': 'ok', 'worker_check': 'ok', 'failure_queue_check': 'ok'}:
         pass
-    else:
-        send_email( message=repr(data_dct) )                    ## send email if necessary
-    return data_dct                                             ## return data-dct for testing
+    else:                                                           ## send email if necessary
+        msg: str = build_email_message( expectations, evaluation_dct, data_dct )       
+        send_email( message=msg )                                   
+    return 
 
 
 ## helper functions called by run_code() ----------------------------
@@ -131,7 +137,7 @@ def evaluate_qdata( expectations, data_dct ):
     >>> rqinfo_data = {'failed_count': 1, 'queues': ['q1', 'failed'], 'workers_by_queue': {'q1': ['server.123'], 'failed': []}}
     >>> result = evaluate_qdata( expectations_data, rqinfo_data )
     >>> result
-    {'queue_check': 'fail', 'worker_check': 'fail', 'failure_queue_check': 'fail'}
+    {'queue_check': 'FAIL', 'worker_check': 'FAIL', 'failure_queue_check': 'FAIL'}
     """
     checks_result = {'queue_check': 'init', 'worker_check': 'init', 'failure_queue_check': 'init'}
     log.debug( f'starting checks_result, ``{checks_result}``' )
@@ -140,7 +146,7 @@ def evaluate_qdata( expectations, data_dct ):
     for queue in expectations['expected_queues']:
         if queue not in data_dct['queues']:
             log.debug( f'queue, ``{queue}``, not found in queue-check' )
-            checks_result['queue_check'] = 'fail'
+            checks_result['queue_check'] = 'FAIL'
             queue_check_flag = 'fail'
             break
     if queue_check_flag == 'init':
@@ -154,19 +160,19 @@ def evaluate_qdata( expectations, data_dct ):
         worker_count = worker_dct['worker_count']
         if queue not in data_dct['workers_by_queue']:
             log.debug( f'queue, ``{queue}``, not found in worker-check' )
-            checks_result['worker_check'] = 'fail'
+            checks_result['worker_check'] = 'FAIL'
             worker_check_flag = 'fail'
             break
         if len( data_dct['workers_by_queue'][queue] ) != worker_count:
             log.debug( f'queue, ``{queue}``, has wrong number of workers' )
-            checks_result['worker_check'] = 'fail'
+            checks_result['worker_check'] = 'FAIL'
             worker_check_flag = 'fail'
             break
     if worker_check_flag == 'init':
         checks_result['worker_check'] = 'ok'
     ## failure-count check ------------------------------------------
     if data_dct['failed_count'] > expectations['permitted_failures']:
-        checks_result['failure_queue_check'] = 'fail'
+        checks_result['failure_queue_check'] = 'FAIL'
     else:
         checks_result['failure_queue_check'] = 'ok'
     log.debug( f'checks_result, ``{checks_result}``' )
@@ -174,10 +180,32 @@ def evaluate_qdata( expectations, data_dct ):
     # end def evaluate_qdata()
 
 
+def build_email_message( expectations_dct, evaluation_dct, data_dct ):
+    """ Assembles email message.
+        Called by run_code() """
+    assert type(evaluation_dct) == dict
+    assert type(data_dct) == dict
+    msg = f'''
+time-stamp: 
+``{datetime.datetime.now()}``
+    
+check-result: 
+``{repr(evaluation_dct)}``
+
+expectations settings:
+``{pprint.pformat(expectations_dct)}``
+
+actual rqinfo-data: 
+``{pprint.pformat(data_dct)}``
+````'''
+    log.debug( f'msg, ``{msg}``' )
+    return msg
+
+
 def send_email( message ):
     """ Sends mail; generates exception which cron-job should email to crontab owner on sendmail failure.
         Called by run_code() """
-    assert type(message) == str
+    assert type(message) == str, type(message)
     log.debug( f'message, ``{message}``' )
     EMAIL_HOST = os.environ['QCHKR__EMAIL_HOST']
     EMAIL_PORT = int( os.environ['QCHKR__EMAIL_HOST_PORT'] )  
@@ -185,9 +213,9 @@ def send_email( message ):
     EMAIL_RECIPIENTS = json.loads( os.environ['QCHKR__EMAIL_RECIPIENTS_JSON'] )
     try:
         s = smtplib.SMTP( EMAIL_HOST, EMAIL_PORT )
-        body = f'datetime: `{str(datetime.datetime.now())}`\n\nSome intro...\n\n{message}\n\n[END]'
+        body = message
         eml = MIMEText( f'{body}' )
-        eml['Subject'] = 'error found in parse-alma-exports logfile'
+        eml['Subject'] = 'QUEUE-CHECKER ALERT on ``{EMAIL_HOST}``'
         eml['From'] = EMAIL_FROM
         eml['To'] = ';'.join( EMAIL_RECIPIENTS )
         s.sendmail( EMAIL_FROM, EMAIL_RECIPIENTS, eml.as_string())
