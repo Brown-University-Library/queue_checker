@@ -12,14 +12,14 @@ Usage:
 """
 
 import datetime, json, logging, os, pprint, smtplib, subprocess
-from email.header import Header
-from email.mime.multipart import MIMEMultipart
+# from email.header import Header
+# from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-# from email.utils import formataddr
 
 
 logging.basicConfig(  # no file-logging for now
     level=logging.DEBUG,
+    # level=logging.INFO,
     format='[%(asctime)s] %(levelname)s [%(module)s-%(funcName)s()::%(lineno)d] %(message)s',
     datefmt='%d/%b/%Y %H:%M:%S' )
 log = logging.getLogger( '__name__' )
@@ -56,28 +56,31 @@ def evaluate_qdata( expectations, data_dct ):
         
     Example -- all ok:
     >>> expectations_data = {'expected_queues': ['q1', 'q2'], 'expected_workers': [{'queue': 'q1', 'worker_count': 1}], 'permitted_failures': 0}
-    >>> rqinfo_data = {'failed_count': 0, 'queues': ['q_1', 'q_2', 'failed'], 'workers_by_queue': {'q_1': ['server.123'], 'q_2': ['server.234'], 'failed': []}}
+    >>> rqinfo_data = {'failed_count': 0, 'queues': ['q1', 'q2', 'failed'], 'workers_by_queue': {'q1': ['server.123'], 'q2': ['server.234'], 'failed': []}}
     >>> result = evaluate_qdata( expectations_data, rqinfo_data )
     >>> result
     {'queue_check': 'ok', 'worker_check': 'ok', 'failure_queue_check': 'ok'}
     
-    Example -- problem:
-    >>> expectations_data = {'expected_queues': ['q1', 'q2', 'q3'], 'expected_workers': [{'queue': 'q1', 'worker_count': 1}, {'queue': 'q2', 'worker_count': 1}], 'permitted_failures': 0}
-    >>> rqinfo_data = {'failed_count': 1, 'queues': ['q_1', 'failed'], 'workers_by_queue': {'q_1': ['server.123'], 'failed': []}}
-    >>> result = evaluate_qdata( expectations_data, rqinfo_data )
-    >>> result
-    {'queue_check': 'fail', 'worker_check': 'fail', 'failure_queue_check': 'fail'}
+    # Example -- problem:
+    # >>> expectations_data = {'expected_queues': ['q1', 'q2', 'q3'], 'expected_workers': [{'queue': 'q1', 'worker_count': 1}, {'queue': 'q2', 'worker_count': 1}], 'permitted_failures': 0}
+    # >>> rqinfo_data = {'failed_count': 1, 'queues': ['q1', 'failed'], 'workers_by_queue': {'q1': ['server.123'], 'failed': []}}
+    # >>> result = evaluate_qdata( expectations_data, rqinfo_data )
+    # >>> result
+    # {'queue_check': 'fail', 'worker_check': 'fail', 'failure_queue_check': 'fail'}
     """
     checks_result = {'queue_check': 'init', 'worker_check': 'init', 'failure_queue_check': 'init'}
+    log.debug( f'starting checks_result, ``{checks_result}``' )
     ## queue check --------------------------------------------------
     queue_check_flag = 'init'
     for queue in expectations['expected_queues']:
         if queue not in data_dct['queues']:
             log.debug( f'queue, ``{queue}``, not found in queue-check' )
             checks_result['queue_check'] = 'fail'
+            queue_check_flag = 'fail'
             break
     if queue_check_flag == 'init':
         checks_result['queue_check'] = 'ok'
+    log.debug( f'after queue-check, checks_result, ``{checks_result}``' )
     ## worker check --------------------------------------------------
     worker_check_flag = 'init'
     for worker_dct in expectations['expected_workers']:
@@ -87,10 +90,12 @@ def evaluate_qdata( expectations, data_dct ):
         if queue not in data_dct['workers_by_queue']:
             log.debug( f'queue, ``{queue}``, not found in worker-check' )
             checks_result['worker_check'] = 'fail'
+            worker_check_flag = 'fail'
             break
         if len( data_dct['workers_by_queue'][queue] ) != worker_count:
             log.debug( f'queue, ``{queue}``, has wrong number of workers' )
             checks_result['worker_check'] = 'fail'
+            worker_check_flag = 'fail'
             break
     if worker_check_flag == 'init':
         checks_result['worker_check'] = 'ok'
@@ -99,7 +104,6 @@ def evaluate_qdata( expectations, data_dct ):
         checks_result['failure_queue_check'] = 'fail'
     else:
         checks_result['failure_queue_check'] = 'ok'
-
     log.debug( f'checks_result, ``{checks_result}``' )
     return checks_result
 
