@@ -68,7 +68,40 @@ def evaluate_qdata( expectations, data_dct ):
     >>> result
     {'queue_check': 'fail', 'worker_check': 'fail', 'failure_queue_check': 'fail'}
     """
-    return 'foo'
+    checks_result = {'queue_check': 'init', 'worker_check': 'init', 'failure_queue_check': 'init'}
+    ## queue check --------------------------------------------------
+    queue_check_flag = 'init'
+    for queue in expectations['expected_queues']:
+        if queue not in data_dct['queues']:
+            log.debug( f'queue, ``{queue}``, not found in queue-check' )
+            checks_result['queue_check'] = 'fail'
+            break
+    if queue_check_flag == 'init':
+        checks_result['queue_check'] = 'ok'
+    ## worker check --------------------------------------------------
+    worker_check_flag = 'init'
+    for worker_dct in expectations['expected_workers']:
+        log.debug( f'checking worker_dct, ``{worker_dct}``')
+        queue = worker_dct['queue']
+        worker_count = worker_dct['worker_count']
+        if queue not in data_dct['workers_by_queue']:
+            log.debug( f'queue, ``{queue}``, not found in worker-check' )
+            checks_result['worker_check'] = 'fail'
+            break
+        if len( data_dct['workers_by_queue'][queue] ) != worker_count:
+            log.debug( f'queue, ``{queue}``, has wrong number of workers' )
+            checks_result['worker_check'] = 'fail'
+            break
+    if worker_check_flag == 'init':
+        checks_result['worker_check'] = 'ok'
+    ## failure-count check ------------------------------------------
+    if data_dct['failed_count'] > expectations['permitted_failures']:
+        checks_result['failure_queue_check'] = 'fail'
+    else:
+        checks_result['failure_queue_check'] = 'ok'
+
+    log.debug( f'checks_result, ``{checks_result}``' )
+    return checks_result
 
 
 def get_rqinfo() -> str:
