@@ -42,70 +42,14 @@ def run_code():
     data_dct = parse_rqinfo( output )                           ## parse `rqinfo` output
     assert type(data_dct) == dict
     evaluation_dct = evaluate_qdata( expectations, data_dct )   ## evaluate `rqinfo` output
-    send_email( message=repr(data_dct) )                        ## send email if necessary
+    if evaluation_dct == {'queue_check': 'ok', 'worker_check': 'ok', 'failure_queue_check': 'ok'}:
+        pass
+    else:
+        send_email( message=repr(data_dct) )                    ## send email if necessary
     return data_dct                                             ## return data-dct for testing
 
 
 ## helper functions called by run_code() ----------------------------
-
-
-def evaluate_qdata( expectations, data_dct ):
-    """ 
-    Evaluates rqinfo output against expectation-data.
-    Called by run_code() 
-        
-    Example -- all ok:
-    >>> expectations_data = {'expected_queues': ['q1', 'q2'], 'expected_workers': [{'queue': 'q1', 'worker_count': 1}], 'permitted_failures': 0}
-    >>> rqinfo_data = {'failed_count': 0, 'queues': ['q1', 'q2', 'failed'], 'workers_by_queue': {'q1': ['server.123'], 'q2': ['server.234'], 'failed': []}}
-    >>> result = evaluate_qdata( expectations_data, rqinfo_data )
-    >>> result
-    {'queue_check': 'ok', 'worker_check': 'ok', 'failure_queue_check': 'ok'}
-    
-    # Example -- problem:
-    # >>> expectations_data = {'expected_queues': ['q1', 'q2', 'q3'], 'expected_workers': [{'queue': 'q1', 'worker_count': 1}, {'queue': 'q2', 'worker_count': 1}], 'permitted_failures': 0}
-    # >>> rqinfo_data = {'failed_count': 1, 'queues': ['q1', 'failed'], 'workers_by_queue': {'q1': ['server.123'], 'failed': []}}
-    # >>> result = evaluate_qdata( expectations_data, rqinfo_data )
-    # >>> result
-    # {'queue_check': 'fail', 'worker_check': 'fail', 'failure_queue_check': 'fail'}
-    """
-    checks_result = {'queue_check': 'init', 'worker_check': 'init', 'failure_queue_check': 'init'}
-    log.debug( f'starting checks_result, ``{checks_result}``' )
-    ## queue check --------------------------------------------------
-    queue_check_flag = 'init'
-    for queue in expectations['expected_queues']:
-        if queue not in data_dct['queues']:
-            log.debug( f'queue, ``{queue}``, not found in queue-check' )
-            checks_result['queue_check'] = 'fail'
-            queue_check_flag = 'fail'
-            break
-    if queue_check_flag == 'init':
-        checks_result['queue_check'] = 'ok'
-    log.debug( f'after queue-check, checks_result, ``{checks_result}``' )
-    ## worker check --------------------------------------------------
-    worker_check_flag = 'init'
-    for worker_dct in expectations['expected_workers']:
-        log.debug( f'checking worker_dct, ``{worker_dct}``')
-        queue = worker_dct['queue']
-        worker_count = worker_dct['worker_count']
-        if queue not in data_dct['workers_by_queue']:
-            log.debug( f'queue, ``{queue}``, not found in worker-check' )
-            checks_result['worker_check'] = 'fail'
-            worker_check_flag = 'fail'
-            break
-        if len( data_dct['workers_by_queue'][queue] ) != worker_count:
-            log.debug( f'queue, ``{queue}``, has wrong number of workers' )
-            checks_result['worker_check'] = 'fail'
-            worker_check_flag = 'fail'
-            break
-    if worker_check_flag == 'init':
-        checks_result['worker_check'] = 'ok'
-    ## failure-count check ------------------------------------------
-    if data_dct['failed_count'] > expectations['permitted_failures']:
-        checks_result['failure_queue_check'] = 'fail'
-    else:
-        checks_result['failure_queue_check'] = 'ok'
-    log.debug( f'checks_result, ``{checks_result}``' )
-    return checks_result
 
 
 def get_rqinfo() -> str:
@@ -168,6 +112,67 @@ def parse_rqinfo( rq_output ):
             output['workers_by_queue'][queue_name] = worker_names
     log.debug( f'output, ``{pprint.pformat(output)}``' )
     return output
+    # end def parse_rqinfo()
+
+
+def evaluate_qdata( expectations, data_dct ):
+    """ 
+    Evaluates rqinfo output against expectation-data.
+    Called by run_code() 
+        
+    Example -- all ok:
+    >>> expectations_data = {'expected_queues': ['q1', 'q2'], 'expected_workers': [{'queue': 'q1', 'worker_count': 1}], 'permitted_failures': 0}
+    >>> rqinfo_data = {'failed_count': 0, 'queues': ['q1', 'q2', 'failed'], 'workers_by_queue': {'q1': ['server.123'], 'q2': ['server.234'], 'failed': []}}
+    >>> result = evaluate_qdata( expectations_data, rqinfo_data )
+    >>> result
+    {'queue_check': 'ok', 'worker_check': 'ok', 'failure_queue_check': 'ok'}
+    
+    Example -- problem:
+    >>> expectations_data = {'expected_queues': ['q1', 'q2', 'q3'], 'expected_workers': [{'queue': 'q1', 'worker_count': 1}, {'queue': 'q2', 'worker_count': 1}], 'permitted_failures': 0}
+    >>> rqinfo_data = {'failed_count': 1, 'queues': ['q1', 'failed'], 'workers_by_queue': {'q1': ['server.123'], 'failed': []}}
+    >>> result = evaluate_qdata( expectations_data, rqinfo_data )
+    >>> result
+    {'queue_check': 'fail', 'worker_check': 'fail', 'failure_queue_check': 'fail'}
+    """
+    checks_result = {'queue_check': 'init', 'worker_check': 'init', 'failure_queue_check': 'init'}
+    log.debug( f'starting checks_result, ``{checks_result}``' )
+    ## queue check --------------------------------------------------
+    queue_check_flag = 'init'
+    for queue in expectations['expected_queues']:
+        if queue not in data_dct['queues']:
+            log.debug( f'queue, ``{queue}``, not found in queue-check' )
+            checks_result['queue_check'] = 'fail'
+            queue_check_flag = 'fail'
+            break
+    if queue_check_flag == 'init':
+        checks_result['queue_check'] = 'ok'
+    log.debug( f'after queue-check, checks_result, ``{checks_result}``' )
+    ## worker check --------------------------------------------------
+    worker_check_flag = 'init'
+    for worker_dct in expectations['expected_workers']:
+        log.debug( f'checking worker_dct, ``{worker_dct}``')
+        queue = worker_dct['queue']
+        worker_count = worker_dct['worker_count']
+        if queue not in data_dct['workers_by_queue']:
+            log.debug( f'queue, ``{queue}``, not found in worker-check' )
+            checks_result['worker_check'] = 'fail'
+            worker_check_flag = 'fail'
+            break
+        if len( data_dct['workers_by_queue'][queue] ) != worker_count:
+            log.debug( f'queue, ``{queue}``, has wrong number of workers' )
+            checks_result['worker_check'] = 'fail'
+            worker_check_flag = 'fail'
+            break
+    if worker_check_flag == 'init':
+        checks_result['worker_check'] = 'ok'
+    ## failure-count check ------------------------------------------
+    if data_dct['failed_count'] > expectations['permitted_failures']:
+        checks_result['failure_queue_check'] = 'fail'
+    else:
+        checks_result['failure_queue_check'] = 'ok'
+    log.debug( f'checks_result, ``{checks_result}``' )
+    return checks_result
+    # end def evaluate_qdata()
 
 
 def send_email( message ):
@@ -178,7 +183,6 @@ def send_email( message ):
     EMAIL_HOST = os.environ['QCHKR__EMAIL_HOST']
     EMAIL_PORT = int( os.environ['QCHKR__EMAIL_HOST_PORT'] )  
     EMAIL_FROM = os.environ['QCHKR__EMAIL_FROM']
-    # EMAIL_RECIPIENTS = os.environ['QCHKR__EMAIL_RECIPIENTS_JSON'].split( ';' )
     EMAIL_RECIPIENTS = json.loads( os.environ['QCHKR__EMAIL_RECIPIENTS_JSON'] )
     try:
         s = smtplib.SMTP( EMAIL_HOST, EMAIL_PORT )
@@ -191,6 +195,7 @@ def send_email( message ):
     except Exception as e:
         err = repr( e )
         log.exception( f'Problem sending queue-checker mail, ``{err}``' )
+        raise Exception( err )
     return
 
 
