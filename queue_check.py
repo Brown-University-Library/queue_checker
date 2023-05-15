@@ -41,10 +41,12 @@ def run_code():
     Controller.
     Called by dunder-main.
     """
+    # previous_rqinfo_data = json.loads( '../previous_rqinfo_data/previous_rqinfo_data.json' )
     output  = get_rqinfo()                                          ## run `rqinfo`
     assert type(output) == str
     data_dct = parse_rqinfo( output )                               ## parse `rqinfo` output
     assert type(data_dct) == dict
+    save_rqinfo_data( data_dct )
     evaluation_dct = evaluate_qdata( expectations, data_dct )       ## evaluate `rqinfo` output
     assert type(evaluation_dct) == dict
     if evaluation_dct == {'queue_check': 'ok', 'worker_check': 'ok', 'failure_queue_check': 'ok'}:
@@ -58,6 +60,25 @@ def run_code():
 
 
 ## helper functions called by run_code() ----------------------------
+
+
+def save_rqinfo_data( data_dct ):
+    """ Saves rqinfo data to file.
+        Called by run_code() """
+    assert type(data_dct) == dict
+    jsn = json.dumps( data_dct, sort_keys=True, indent=2 )
+    ## assume unicorns exist ------------------------------------------
+    file_path = '../previous_rqinfo_data/previous_rqinfo_data.json'
+    try:
+        with open( file_path, 'w' ) as f:
+            f.write( jsn )
+    ## only acknowledge unhappiness if necessary ----------------------
+    except FileNotFoundError:
+        os.makedirs( os.path.dirname(file_path), exist_ok=True )
+        with open( file_path, 'w' ) as f:
+            f.write( jsn )
+    log.debug( 'rqinfo data saved' )
+    return
 
 
 def get_rqinfo() -> str:
