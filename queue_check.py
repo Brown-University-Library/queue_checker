@@ -186,17 +186,20 @@ def build_email_message( expectations_dct, evaluation_dct, data_dct ):
     assert type(evaluation_dct) == dict
     assert type(data_dct) == dict
     msg = f'''
-time-stamp: 
-``{datetime.datetime.now()}``
+TIME-STAMP ----------------------------------------------------------
+{datetime.datetime.now()}
     
-check-result: 
-``{repr(evaluation_dct)}``
+CHECK-RESULT --------------------------------------------------------
+{repr(evaluation_dct)}
 
-expectations settings:
+EXPECTATIONS SETTINGS -----------------------------------------------
 ``{pprint.pformat(expectations_dct)}``
 
-actual rqinfo-data: 
-``{pprint.pformat(data_dct)}``
+ACTUAL RQINFO-DATA -------------------------------------------------- 
+{pprint.pformat(data_dct)}
+
+[END]
+
 '''
     log.debug( f'msg, ``{msg}``' )
     return msg
