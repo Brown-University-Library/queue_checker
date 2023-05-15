@@ -28,17 +28,36 @@ log = logging.getLogger( '__name__' )
 expectation = {
 }
 
+## main controller --------------------------------------------------
+
+
 def run_code():
     """
     Controller.
     Called by dunder-main.
     """
-    output  = get_rqinfo()
+    output  = get_rqinfo()                              ## run `rqinfo`
     assert type(output) == str
-    data_dct = parse_rqinfo( output )
+    data_dct = parse_rqinfo( output )                   ## parse `rqinfo` output
     assert type(data_dct) == dict
-    send_email( message=repr(data_dct) )
-    return data_dct
+    # evaluation_dct = evaluate_rqinfo_data( data_dct ) ## evaluate `rqinfo` output
+    send_email( message=repr(data_dct) )                ## send email if necessary
+    return data_dct                                     ## return data-dct for testing
+
+
+## helper functions called by run_code() ----------------------------
+
+
+def get_rqinfo() -> str:
+    """ Runs `rqinfo`, returns output.
+        - `--by-queue` returns the normal queue output, but shows workers associated with each queue.
+        - `--raw` doesn't return the summary line or the job-bar, just the basic data. 
+        Called by run_code() """
+    result = subprocess.run(['rqinfo', '--by-queue', '--raw'], stdout=subprocess.PIPE)
+    output = result.stdout.decode()
+    assert type(output) == str
+    log.debug( f'output, ``{output}``' )
+    return output
 
 
 def parse_rqinfo( rq_output ):
@@ -91,15 +110,7 @@ def parse_rqinfo( rq_output ):
     return output
 
 
-def get_rqinfo():
-    """ Runs `rqinfo`, returns output.
-        - `--by-queue` returns the normal queue output, but shows workers associated with each queue.
-        - `--raw` doesn't return the summary line or the job-bar, just the basic data. """
-    result = subprocess.run(['rqinfo', '--by-queue', '--raw'], stdout=subprocess.PIPE)
-    output = result.stdout.decode()
-    assert type(output) == str
-    log.debug( f'output, ``{output}``' )
-    return output
+
 
 
 ## mmail stuff ------------------------------------------------------
@@ -114,7 +125,6 @@ def send_email( message ):
     EMAIL_FROM = os.environ['QCHKR__EMAIL_FROM']
     # EMAIL_RECIPIENTS = os.environ['QCHKR__EMAIL_RECIPIENTS_JSON'].split( ';' )
     EMAIL_RECIPIENTS = json.loads( os.environ['QCHKR__EMAIL_RECIPIENTS_JSON'] )
-
     try:
         s = smtplib.SMTP( EMAIL_HOST, EMAIL_PORT )
         body = f'datetime: `{str(datetime.datetime.now())}`\n\nSome intro...\n\n{message}\n\n[END]'
