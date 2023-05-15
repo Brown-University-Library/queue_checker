@@ -16,7 +16,7 @@ Tests can be run via substituting for the above line:
 % python -m doctest -v ./queue_check.py
 """
 
-import datetime, json, logging, os, pprint, smtplib, subprocess
+import datetime, json, logging, os, pprint, smtplib, socket, subprocess
 from email.mime.text import MIMEText
 
 
@@ -211,11 +211,12 @@ def send_email( message ):
     EMAIL_PORT = int( os.environ['QCHKR__EMAIL_HOST_PORT'] )  
     EMAIL_FROM = os.environ['QCHKR__EMAIL_FROM']
     EMAIL_RECIPIENTS = json.loads( os.environ['QCHKR__EMAIL_RECIPIENTS_JSON'] )
+    HOST = socket.gethostname()
     try:
         s = smtplib.SMTP( EMAIL_HOST, EMAIL_PORT )
         body = message
         eml = MIMEText( f'{body}' )
-        eml['Subject'] = 'QUEUE-CHECKER ALERT on ``{EMAIL_HOST}``'
+        eml['Subject'] = f'queue-checker alert from ``{HOST.upper()}``'
         eml['From'] = EMAIL_FROM
         eml['To'] = ';'.join( EMAIL_RECIPIENTS )
         s.sendmail( EMAIL_FROM, EMAIL_RECIPIENTS, eml.as_string())
