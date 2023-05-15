@@ -25,8 +25,9 @@ logging.basicConfig(  # no file-logging for now
 log = logging.getLogger( '__name__' )
 
 
-expectation = {
-}
+expectations = json.loads( os.environ['QCHKR__EXPECTATIONS_JSON'] )
+log.debug( f'expectations, ``{pprint.pformat(expectations)}``' )    
+
 
 ## main controller --------------------------------------------------
 
@@ -36,13 +37,13 @@ def run_code():
     Controller.
     Called by dunder-main.
     """
-    output  = get_rqinfo()                              ## run `rqinfo`
+    output  = get_rqinfo()                                      ## run `rqinfo`
     assert type(output) == str
-    data_dct = parse_rqinfo( output )                   ## parse `rqinfo` output
+    data_dct = parse_rqinfo( output )                           ## parse `rqinfo` output
     assert type(data_dct) == dict
-    # evaluation_dct = evaluate_rqinfo_data( data_dct ) ## evaluate `rqinfo` output
-    send_email( message=repr(data_dct) )                ## send email if necessary
-    return data_dct                                     ## return data-dct for testing
+    evaluation_dct = evaluate_qdata( expectations, data_dct )   ## evaluate `rqinfo` output
+    send_email( message=repr(data_dct) )                        ## send email if necessary
+    return data_dct                                             ## return data-dct for testing
 
 
 ## helper functions called by run_code() ----------------------------
@@ -99,21 +100,16 @@ def parse_rqinfo( rq_output ):
             if queue_name == 'failed':
                 output['failed_count'] = int(count)
         else:                           # Line format: <queue_name>: <worker.123 (idle), worker.124 (idle)> ...or...
-                                        #              failed: –
+                                        #                    failed: –
             ( queue_name, worker_data ) = line.split(':')
             worker_data = worker_data.strip()
             worker_names = []
-            if worker_data != '–':      # Split by comma and get the server name from each part
+            if worker_data != '–':      # Split by comma and get the worker name from each part
                 worker_names = [part.split()[0] for part in worker_data.split(',')]
             output['workers_by_queue'][queue_name] = worker_names
     log.debug( f'output, ``{pprint.pformat(output)}``' )
     return output
 
-
-
-
-
-## mmail stuff ------------------------------------------------------
 
 def send_email( message ):
     """ Sends mail; generates exception which cron-job should email to crontab owner on sendmail failure.
@@ -137,57 +133,6 @@ def send_email( message ):
         err = repr( e )
         log.exception( f'Problem sending queue-checker mail, ``{err}``' )
     return
-
-
-# def send_email(subject, body):
-#     """ Sends email.
-#         Called by run_code(). """
-#     ## validate inputs
-#     assert type(subject) == str
-#     assert type(body) == str
-
-#     ## get envars
-#     actual_sender = os.environ['QCHKR__ACTUAL_SENDER']
-#     apparent_sender = os.environ['QCHKR__APPARENT_SENDER']
-#     smpt_server = os.environ['QCHKR__SMTP_SERVER']
-#     to_list = os.environ['QCHKR__TO_LIST'].split(',')
-
-#     ## build root email
-#     msg = MIMEMultipart('alternative')
-#     msg['Subject'] = Header(subject, 'utf-8')
-#     # msg['From'] = apparent_sender
-#     # msg['From'] = formataddr( (str(Header(apparent_sender, 'utf-8')), apparent_sender) )
-#     msg['From'] = Header( apparent_sender, 'utf-8' )
-#     # msg['To'] = ', '.join(to_list)
-#     # msg['To'] = ', '.join( [formataddr((str(Header(to, 'utf-8')), to)) for to in to_list] )
-#     to_list_encoded = [ str(Header(to, 'utf-8')) for to in to_list ]
-#     msg['To'] = ', '.join(to_list_encoded)
-
-#     ## add body
-#     msg.attach(MIMEText(body, 'plain', 'utf-8'))
-
-#     ## send
-#     server = smtplib.SMTP( smpt_server )
-#     server.sendmail( actual_sender, to_list, msg.as_string() )
-#     server.quit()
-
-
-# def _send_mail( message ):
-#     """ Sends mail; generates exception which cron-job should email to crontab owner on sendmail failure.
-#         Called by run_check() """
-#     log.debug( f'message, ``{message}``' )
-#     try:
-#         s = smtplib.SMTP( EMAIL_HOST, EMAIL_PORT )
-#         body = f'datetime: `{str(datetime.datetime.now())}`\n\nlast few error-entries...\n\n{message}\n\nLog path: `{LOG_FILEPATH}`\n\n[END]'
-#         eml = MIMEText( f'{body}' )
-#         eml['Subject'] = 'error found in parse-alma-exports logfile'
-#         eml['From'] = EMAIL_FROM
-#         eml['To'] = ';'.join( EMAIL_RECIPIENTS )
-#         s.sendmail( EMAIL_FROM, EMAIL_RECIPIENTS, eml.as_string())
-#     except Exception as e:
-#         err = repr( e )
-#         log.exception( f'Problem sending mail, ``{err}``' )
-#     return
 
 
 ## dunder-main ------------------------------------------------------
