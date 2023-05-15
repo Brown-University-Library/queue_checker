@@ -11,9 +11,14 @@ Usage:
 % python ./queue_check.py
 """
 
-import logging, pprint, subprocess
+import datetime, json, logging, os, pprint, smtplib, subprocess
+from email.header import Header
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+# from email.utils import formataddr
 
-logging.basicConfig(
+
+logging.basicConfig(  # no file-logging for now
     level=logging.DEBUG,
     format='[%(asctime)s] %(levelname)s [%(module)s-%(funcName)s()::%(lineno)d] %(message)s',
     datefmt='%d/%b/%Y %H:%M:%S' )
@@ -26,11 +31,13 @@ expectation = {
 def run_code():
     """
     Controller.
-    Called by `if __name__ == '__main__':`
+    Called by dunder-main.
     """
     output  = get_rqinfo()
     assert type(output) == str
     data_dct = parse_rqinfo( output )
+    assert type(data_dct) == dict
+    send_email( message=repr(data_dct) )
     return data_dct
 
 
@@ -85,17 +92,95 @@ def parse_rqinfo( rq_output ):
 
 
 def get_rqinfo():
-    """
-    Runs `rqinfo`, returns output.
-    - `--by-queue` returns the normal queue output, but shows workers associated with each queue.
-    - `--raw` doesn't return the summary line or the job-bar, just the basic data.
-    """
+    """ Runs `rqinfo`, returns output.
+        - `--by-queue` returns the normal queue output, but shows workers associated with each queue.
+        - `--raw` doesn't return the summary line or the job-bar, just the basic data. """
     result = subprocess.run(['rqinfo', '--by-queue', '--raw'], stdout=subprocess.PIPE)
     output = result.stdout.decode()
     assert type(output) == str
     log.debug( f'output, ``{output}``' )
     return output
 
+
+## mmail stuff ------------------------------------------------------
+
+def send_email( message ):
+    """ Sends mail; generates exception which cron-job should email to crontab owner on sendmail failure.
+        Called by run_code() """
+    assert type(message) == str
+    log.debug( f'message, ``{message}``' )
+    EMAIL_HOST = os.environ['QCHKR__EMAIL_HOST']
+    EMAIL_PORT = int( os.environ['QCHKR__EMAIL_HOST_PORT'] )  
+    EMAIL_FROM = os.environ['QCHKR__EMAIL_FROM']
+    # EMAIL_RECIPIENTS = os.environ['QCHKR__EMAIL_RECIPIENTS_JSON'].split( ';' )
+    EMAIL_RECIPIENTS = json.loads( os.environ['QCHKR__EMAIL_RECIPIENTS_JSON'] )
+
+    try:
+        s = smtplib.SMTP( EMAIL_HOST, EMAIL_PORT )
+        body = f'datetime: `{str(datetime.datetime.now())}`\n\Some intro...\n\n{message}\n\n[END]'
+        eml = MIMEText( f'{body}' )
+        eml['Subject'] = 'error found in parse-alma-exports logfile'
+        eml['From'] = EMAIL_FROM
+        eml['To'] = ';'.join( EMAIL_RECIPIENTS )
+        s.sendmail( EMAIL_FROM, EMAIL_RECIPIENTS, eml.as_string())
+    except Exception as e:
+        err = repr( e )
+        log.exception( f'Problem sending queue-checker mail, ``{err}``' )
+    return
+
+
+# def send_email(subject, body):
+#     """ Sends email.
+#         Called by run_code(). """
+#     ## validate inputs
+#     assert type(subject) == str
+#     assert type(body) == str
+
+#     ## get envars
+#     actual_sender = os.environ['QCHKR__ACTUAL_SENDER']
+#     apparent_sender = os.environ['QCHKR__APPARENT_SENDER']
+#     smpt_server = os.environ['QCHKR__SMTP_SERVER']
+#     to_list = os.environ['QCHKR__TO_LIST'].split(',')
+
+#     ## build root email
+#     msg = MIMEMultipart('alternative')
+#     msg['Subject'] = Header(subject, 'utf-8')
+#     # msg['From'] = apparent_sender
+#     # msg['From'] = formataddr( (str(Header(apparent_sender, 'utf-8')), apparent_sender) )
+#     msg['From'] = Header( apparent_sender, 'utf-8' )
+#     # msg['To'] = ', '.join(to_list)
+#     # msg['To'] = ', '.join( [formataddr((str(Header(to, 'utf-8')), to)) for to in to_list] )
+#     to_list_encoded = [ str(Header(to, 'utf-8')) for to in to_list ]
+#     msg['To'] = ', '.join(to_list_encoded)
+
+#     ## add body
+#     msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+#     ## send
+#     server = smtplib.SMTP( smpt_server )
+#     server.sendmail( actual_sender, to_list, msg.as_string() )
+#     server.quit()
+
+
+# def _send_mail( message ):
+#     """ Sends mail; generates exception which cron-job should email to crontab owner on sendmail failure.
+#         Called by run_check() """
+#     log.debug( f'message, ``{message}``' )
+#     try:
+#         s = smtplib.SMTP( EMAIL_HOST, EMAIL_PORT )
+#         body = f'datetime: `{str(datetime.datetime.now())}`\n\nlast few error-entries...\n\n{message}\n\nLog path: `{LOG_FILEPATH}`\n\n[END]'
+#         eml = MIMEText( f'{body}' )
+#         eml['Subject'] = 'error found in parse-alma-exports logfile'
+#         eml['From'] = EMAIL_FROM
+#         eml['To'] = ';'.join( EMAIL_RECIPIENTS )
+#         s.sendmail( EMAIL_FROM, EMAIL_RECIPIENTS, eml.as_string())
+#     except Exception as e:
+#         err = repr( e )
+#         log.exception( f'Problem sending mail, ``{err}``' )
+#     return
+
+
+## dunder-main ------------------------------------------------------
 
 if __name__ == '__main__':
     run_code()
