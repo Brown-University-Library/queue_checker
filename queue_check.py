@@ -193,7 +193,7 @@ CHECK-RESULT --------------------------------------------------------
 {repr(evaluation_dct)}
 
 EXPECTATIONS SETTINGS -----------------------------------------------
-``{pprint.pformat(expectations_dct)}``
+{pprint.pformat(expectations_dct)}
 
 ACTUAL RQINFO-DATA -------------------------------------------------- 
 {pprint.pformat(data_dct)}
