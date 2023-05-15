@@ -197,7 +197,7 @@ expectations settings:
 
 actual rqinfo-data: 
 ``{pprint.pformat(data_dct)}``
-````'''
+'''
     log.debug( f'msg, ``{msg}``' )
     return msg
 
