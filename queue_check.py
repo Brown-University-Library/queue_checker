@@ -41,7 +41,7 @@ def run_code():
     Controller.
     Called by dunder-main.
     """
-    previous_rqinfo_data = json.loads( '../previous_rqinfo_data/previous_rqinfo_data.json' )
+    previous_rqinfo_data = load_previous_rqinfo_data()
     assert type(previous_rqinfo_data) == dict
     ## run `rqinfo` -------------------------------------------------
     output  = get_rqinfo()
@@ -65,6 +65,16 @@ def run_code():
 
 
 ## helper functions called by run_code() ----------------------------
+
+
+def load_previous_rqinfo_data():
+    """
+    Loads previous rqinfo data from file."""
+    with open( '../previous_rqinfo_data/previous_rqinfo_data.json', 'r' ) as f:
+        previous_rqinfo_data = json.loads( f.read() )
+    assert type(previous_rqinfo_data) == dict
+    log.debug( f' previous_rqinfo_data, ``{pprint.pformat(previous_rqinfo_data)}``' )
+    return previous_rqinfo_data
 
 
 def save_rqinfo_data( data_dct ):
@@ -155,11 +165,28 @@ def parse_rqinfo( rq_output ):
 def evaluate_qdata( previous_failed_count, expectations, data_dct ):
     """ 
     Evaluates rqinfo output against expectation-data.
-    Called by run_code()         
+    Called by run_code()     
+
+    Example -- all ok:
+    >>> previous_failed_count = 10
+    >>> expectations_data = {'expected_queues': ['q1', 'q2'], 'expected_workers': [{'queue': 'q1', 'worker_count': 1}], 'surge_failure_limit': 10}
+    >>> rqinfo_data = {'failed_count': 15, 'queues': ['q1', 'q2', 'failed'], 'workers_by_queue': {'q1': ['server.123'], 'q2': ['server.234'], 'failed': []}}
+    >>> result = evaluate_qdata( previous_failed_count, expectations_data, rqinfo_data )
+    >>> result
+    {'queue_check': 'ok', 'worker_check': 'ok', 'failure_queue_check': 'ok'}
+    
+    Example -- problem:
+    >>> previous_failed_count = 10
+    >>> expectations_data = {'expected_queues': ['q1', 'q2', 'q3'], 'expected_workers': [{'queue': 'q1', 'worker_count': 1}, {'queue': 'q2', 'worker_count': 1}], 'surge_failure_limit': 10}
+    >>> rqinfo_data = {'failed_count': 30, 'queues': ['q1', 'failed'], 'workers_by_queue': {'q1': ['server.123'], 'failed': []}}
+    >>> result = evaluate_qdata( previous_failed_count, expectations_data, rqinfo_data )
+    >>> result
+    {'queue_check': 'FAIL', 'worker_check': 'FAIL', 'failure_queue_check': 'FAIL'}
     """
     assert type( previous_failed_count ) == int
     assert type( expectations ) == dict
     assert type( data_dct ) == dict
+    log.debug( f'expecations, ``{pprint.pformat(expectations)}``' )
     checks_result = {'queue_check': 'init', 'worker_check': 'init', 'failure_queue_check': 'init'}
     log.debug( f'starting checks_result, ``{checks_result}``' )
     ## queue check --------------------------------------------------
@@ -191,8 +218,14 @@ def evaluate_qdata( previous_failed_count, expectations, data_dct ):
             break
     if worker_check_flag == 'init':
         checks_result['worker_check'] = 'ok'
+    log.debug( f'after worker-check, checks_result, ``{checks_result}``' )
     ## failure-count check ------------------------------------------
-    if data_dct['failed_count'] > ( previous_failed_count + expectations['surge_failure_limit'] ):
+    failure_increase = data_dct['failed_count'] - previous_failed_count
+    log.debug( f'failure_increase, ``{failure_increase}``' )
+    surge_failure_limit = expectations['surge_failure_limit']
+    log.debug( f'surge_failure_limit, ``{surge_failure_limit}``' )
+    if failure_increase > surge_failure_limit:
+        log.debug( f'failure-increase exceeded expectation-settings-limit')
         checks_result['failure_queue_check'] = 'FAIL'
     else:
         checks_result['failure_queue_check'] = 'ok'
