@@ -5,7 +5,7 @@ Occasionally, our servers are restarted. We have scripts to auto-restart necessa
 This code checks:
 - that expected queues exist
 - that expected workers are running.
-- additionally, there is an experimental feature to check the number of jobs in the failed-queue.
+- (experimental) that the number of jobs in the failed-queue is as expected.
 
 If a queue-check or worker-check or failed-queue-count-check fails, an email is sent.
 
@@ -35,6 +35,8 @@ Tests can be run via substituting for the above line:
 
 # Other
 
+## expectations setting 
+
 The "expectations" setting is loaded from a json envar string, created from this dict-structure:
 
 ```python
@@ -52,5 +54,19 @@ expectations_dict_example = {
     'permitted_failures': 0
 }
 ```
+
+## email
+
+The email sent, when an error is detected, displays:
+
+- the error-check overview. Example:
+
+        {'queue_check': 'ok', 'worker_check': 'FAIL', 'failure_queue_check': 'ok'}
+
+- the full expectations-setting.
+
+- the full rqinfo output.
+
+---
 
 [end]
