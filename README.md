@@ -5,7 +5,7 @@ Occasionally, our servers are restarted. We have scripts to auto-restart necessa
 This code checks:
 - that expected queues exist
 - that expected workers are running.
-- (experimental) that the number of jobs in the failed-queue is as expected.
+- for an increase in the number of failed-queue jobs.
 
 If a queue-check or worker-check or failed-queue-count-check fails, an email is sent.
 
@@ -51,7 +51,7 @@ expectations_dict_example = {
         {'queue': 'q1', 'worker_count': 1},
         {'queue': 'q2', 'worker_count': 2}
         ],
-    'permitted_failures': 0
+    'surge_failure_limit': 10
 }
 ```
 
@@ -66,6 +66,8 @@ The email sent, when an error is detected, displays:
 - the full expectations-setting.
 
 - the full rqinfo output.
+
+- the previous rqinfo failure-count.
 
 ---
 
