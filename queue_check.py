@@ -41,14 +41,18 @@ def run_code():
     Controller.
     Called by dunder-main.
     """
-    previous_rqinfo_data = load_previous_rqinfo_data()
-    assert type(previous_rqinfo_data) == dict
+    # previous_rqinfo_data = load_previous_rqinfo_data()
+    # assert type(previous_rqinfo_data) == dict
     ## run `rqinfo` -------------------------------------------------
     output  = get_rqinfo()
     assert type(output) == str
     ## parse `rqinfo` output ----------------------------------------
     data_dct = parse_rqinfo( output )
     assert type(data_dct) == dict
+    ## load previous `rqinfo` data ----------------------------------
+    previous_rqinfo_data = load_previous_rqinfo_data( data_dct )
+    assert type(previous_rqinfo_data) == dict
+    ## save current `rqinfo` data -----------------------------------
     save_rqinfo_data( data_dct )
     ## evaluate `rqinfo` output -------------------------------------
     last_failed_count = previous_rqinfo_data['failed_count']
@@ -68,14 +72,33 @@ def run_code():
 ## helper functions called by run_code() ----------------------------
 
 
-def load_previous_rqinfo_data():
+def load_previous_rqinfo_data( current_rqinfo_data ):
     """
-    Loads previous rqinfo data from file."""
-    with open( '../previous_rqinfo_data/previous_rqinfo_data.json', 'r' ) as f:
-        previous_rqinfo_data = json.loads( f.read() )
-    assert type(previous_rqinfo_data) == dict
-    log.debug( f' previous_rqinfo_data, ``{pprint.pformat(previous_rqinfo_data)}``' )
+    Loads previous rqinfo data from file.
+    Called by run_code().
+    On failure, saves current data to file, and returns current-data.
+        - This enables a smooth first run of the script. """
+    try:
+        with open( '../previous_rqinfo_data/previous_rqinfo_data.json', 'r' ) as f:
+            previous_rqinfo_data = json.loads( f.read() )
+        assert type(previous_rqinfo_data) == dict
+        log.debug( f' previous_rqinfo_data, loaded from file, ``{pprint.pformat(previous_rqinfo_data)}``' )
+    except Exception as e:
+        log.warning( f'exception loading previous data; err, ``{e}``; will save existing data.' )
+        save_rqinfo_data( current_rqinfo_data )
+        previous_rqinfo_data = current_rqinfo_data
+        log.debug( f' previous_rqinfo_data, from _current_ data, ``{pprint.pformat(previous_rqinfo_data)}``' )
     return previous_rqinfo_data
+
+
+# def load_previous_rqinfo_data():
+#     """
+#     Loads previous rqinfo data from file."""
+#     with open( '../previous_rqinfo_data/previous_rqinfo_data.json', 'r' ) as f:
+#         previous_rqinfo_data = json.loads( f.read() )
+#     assert type(previous_rqinfo_data) == dict
+#     log.debug( f' previous_rqinfo_data, ``{pprint.pformat(previous_rqinfo_data)}``' )
+#     return previous_rqinfo_data
 
 
 def get_rqinfo() -> str:
