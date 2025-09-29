@@ -16,11 +16,18 @@ Tests can be run via substituting for the above line:
 % python -m doctest -v ./queue_check.py
 """
 
-import datetime, json, logging, os, pprint, smtplib, socket, subprocess
+import datetime
+import json
+import logging
+import os
+import pprint
+import smtplib
+import socket
+import subprocess
+from string import Template
 from email.mime.text import MIMEText
 
-
-ENV_LOG_LEVEL = os.environ['QCHKR__LOG_LEVEL']
+ENV_LOG_LEVEL = os.environ.get('QCHKR__LOG_LEVEL','INFO')
 level_dct = { 'DEBUG': logging.DEBUG, 'INFO': logging.INFO, }
 logging.basicConfig(  # no file-logging for now
     level=level_dct[ENV_LOG_LEVEL],
@@ -29,9 +36,8 @@ logging.basicConfig(  # no file-logging for now
 log = logging.getLogger( '__name__' )
 
 
-expectations: dict = json.loads( os.environ['QCHKR__EXPECTATIONS_JSON'] )
+expectations: dict = json.loads( os.environ.get('QCHKR__EXPECTATIONS_JSON', '{}' ) )
 log.debug( f'expectations, ``{pprint.pformat(expectations)}``' )    
-
 
 ## main controller --------------------------------------------------
 
@@ -261,25 +267,16 @@ def build_email_message( previous_failure_count, expectations_dct, evaluation_dc
         Called by run_code() """
     assert type(evaluation_dct) == dict
     assert type(data_dct) == dict
-    msg = f'''
-TIME-STAMP ----------------------------------------------------------
-{datetime.datetime.now()}
-    
-CHECK-RESULT --------------------------------------------------------
-{repr(evaluation_dct)}
-
-EXPECTATIONS SETTINGS -----------------------------------------------
-{pprint.pformat(expectations_dct)}
-
-ACTUAL RQINFO-DATA -------------------------------------------------- 
-{pprint.pformat(data_dct)}
-
-PREVIOUS RQINFO-DATA FAILURE-COUNT ----------------------------------
-{previous_failure_count}
-
-[END]
-
-'''
+    with open('email_template.txt', 'r') as f:
+        src = Template(f.read())
+        result = src.substitute({
+            "timestamp":datetime.datetime.now(),
+            "check_result":repr(evaluation_dct),
+            "expectations_settings":pprint.pformat(expectations_dct),
+            "rqinfo_data":pprint.pformat(data_dct),
+            "previous_failure_count":previous_failure_count
+        })
+        msg = result
     log.debug( f'msg, ``{msg}``' )
     return msg
 

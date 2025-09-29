@@ -1,0 +1,18 @@
+
+TIME-STAMP ----------------------------------------------------------
+$timestamp    
+
+CHECK-RESULT --------------------------------------------------------
+$check_result
+
+EXPECTATIONS SETTINGS -----------------------------------------------
+$expectations_settings
+
+ACTUAL RQINFO-DATA -------------------------------------------------- 
+$rqinfo_data
+
+PREVIOUS RQINFO-DATA FAILURE-COUNT ----------------------------------
+$previous_failure_count
+
+[END]
+
