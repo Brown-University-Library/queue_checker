@@ -269,7 +269,7 @@ def build_email_message( previous_failure_count, expectations_dct, evaluation_dc
     assert type(data_dct) == dict
     with open('email_template.txt', 'r') as f:
         src = Template(f.read())
-        result = src.substitute({
+        result = src.safe_substitute({
             "timestamp":datetime.datetime.now(),
             "check_result":repr(evaluation_dct),
             "expectations_settings":pprint.pformat(expectations_dct),
