@@ -1,9 +1,11 @@
+$timestamp - $check_result
 
-TIME-STAMP ----------------------------------------------------------
-$timestamp    
 
-CHECK-RESULT --------------------------------------------------------
-$check_result
+New Failures:
+
+$new_failures
+
+
 
 EXPECTATIONS SETTINGS -----------------------------------------------
 $expectations_settings
