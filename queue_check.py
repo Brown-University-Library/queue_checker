@@ -272,8 +272,7 @@ def build_email_message( new_failures, previous_failure_count, expectations_dct,
     assert type(data_dct) == dict
     with open('email_template.txt', 'r') as f:
         src = Template(f.read())
-        result = src.safe_substitute({
-            "new_failures":"\n".join([f"{job.id} - {job.exc_info.split('\n')[-2]}" for job in new_failures])
+        result = src.safe_substitute({ "new_failures":"\n".join([f"{job.id} - {job.exc_info.split('\n')[-2]}" for job in new_failures]),
             "timestamp":datetime.datetime.now(),
             "check_result":repr(evaluation_dct),
             "expectations_settings":pprint.pformat(expectations_dct),
