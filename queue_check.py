@@ -260,6 +260,7 @@ def evaluate_qdata( previous_failed_count, expectations, data_dct ):
         new_failures = get_failed_queue(connection=Redis('localhost')).jobs[-failure_increase:]
     else:
         checks_result['failure_queue_check'] = 'ok'
+        new_failures=[]
     log.debug( f'checks_result, ``{checks_result}``' )
     return checks_result, new_failures
     # end def evaluate_qdata()
@@ -272,7 +273,8 @@ def build_email_message( new_failures, previous_failure_count, expectations_dct,
     assert type(data_dct) == dict
     with open('email_template.txt', 'r') as f:
         src = Template(f.read())
-        result = src.safe_substitute({ "new_failures":"\n".join([f"{job.id} - {job.exc_info.split('\n')[-2]}" for job in new_failures]),
+        result = src.safe_substitute({
+            "new_failures":"\n".join([job.id+" - "+job.exc_info.split('\n')[-2] for job in new_failures]),
             "timestamp":datetime.datetime.now(),
             "check_result":repr(evaluation_dct),
             "expectations_settings":pprint.pformat(expectations_dct),
