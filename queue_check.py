@@ -16,11 +16,20 @@ Tests can be run via substituting for the above line:
 % python -m doctest -v ./queue_check.py
 """
 
-import datetime, json, logging, os, pprint, smtplib, socket, subprocess
+import datetime
+import json
+import logging
+import os
+import pprint
+import smtplib
+import socket
+import subprocess
+from string import Template
 from email.mime.text import MIMEText
+from redis import Redis
+from rq import get_failed_queue
 
-
-ENV_LOG_LEVEL = os.environ['QCHKR__LOG_LEVEL']
+ENV_LOG_LEVEL = os.environ.get('QCHKR__LOG_LEVEL','INFO')
 level_dct = { 'DEBUG': logging.DEBUG, 'INFO': logging.INFO, }
 logging.basicConfig(  # no file-logging for now
     level=level_dct[ENV_LOG_LEVEL],
@@ -29,9 +38,8 @@ logging.basicConfig(  # no file-logging for now
 log = logging.getLogger( '__name__' )
 
 
-expectations: dict = json.loads( os.environ['QCHKR__EXPECTATIONS_JSON'] )
+expectations: dict = json.loads( os.environ.get('QCHKR__EXPECTATIONS_JSON', '{}' ) )
 log.debug( f'expectations, ``{pprint.pformat(expectations)}``' )    
-
 
 ## main controller --------------------------------------------------
 
@@ -56,14 +64,14 @@ def run_code():
     save_rqinfo_data( data_dct )
     ## evaluate `rqinfo` output -------------------------------------
     last_failed_count = previous_rqinfo_data['failed_count']
-    evaluation_dct = evaluate_qdata( last_failed_count, expectations, data_dct )
+    evaluation_dct, new_failures = evaluate_qdata( last_failed_count, expectations, data_dct )
     assert type(evaluation_dct) == dict
     if evaluation_dct == {'queue_check': 'ok', 'worker_check': 'ok', 'failure_queue_check': 'ok'}:
         pass
     ## send email if necessary ---------------------------------------
     else:
         previous_failure_count = previous_rqinfo_data['failed_count']
-        msg: str = build_email_message( previous_failure_count, expectations, evaluation_dct, data_dct )       
+        msg: str = build_email_message( new_failures, previous_failure_count, expectations, evaluation_dct, data_dct )
         send_email( message=msg )
     log.info( f'evaluation_dct, ``{pprint.pformat(evaluation_dct)}``' )
     return 
@@ -195,7 +203,7 @@ def evaluate_qdata( previous_failed_count, expectations, data_dct ):
     >>> previous_failed_count = 10
     >>> expectations_data = {'expected_queues': ['q1', 'q2'], 'expected_workers': [{'queue': 'q1', 'worker_count': 1}], 'surge_failure_limit': 10}
     >>> rqinfo_data = {'failed_count': 15, 'queues': ['q1', 'q2', 'failed'], 'workers_by_queue': {'q1': ['server.123'], 'q2': ['server.234'], 'failed': []}}
-    >>> result = evaluate_qdata( previous_failed_count, expectations_data, rqinfo_data )
+    >>> result, new_failures = evaluate_qdata( previous_failed_count, expectations_data, rqinfo_data )
     >>> result
     {'queue_check': 'ok', 'worker_check': 'ok', 'failure_queue_check': 'ok'}
     
@@ -203,7 +211,7 @@ def evaluate_qdata( previous_failed_count, expectations, data_dct ):
     >>> previous_failed_count = 10
     >>> expectations_data = {'expected_queues': ['q1', 'q2', 'q3'], 'expected_workers': [{'queue': 'q1', 'worker_count': 1}, {'queue': 'q2', 'worker_count': 1}], 'surge_failure_limit': 10}
     >>> rqinfo_data = {'failed_count': 30, 'queues': ['q1', 'failed'], 'workers_by_queue': {'q1': ['server.123'], 'failed': []}}
-    >>> result = evaluate_qdata( previous_failed_count, expectations_data, rqinfo_data )
+    >>> result, new_failures = evaluate_qdata( previous_failed_count, expectations_data, rqinfo_data )
     >>> result
     {'queue_check': 'FAIL', 'worker_check': 'FAIL', 'failure_queue_check': 'FAIL'}
     """
@@ -249,37 +257,31 @@ def evaluate_qdata( previous_failed_count, expectations, data_dct ):
     if failure_increase > surge_failure_limit:
         log.debug( f'failure-increase exceeded expectation-settings-limit')
         checks_result['failure_queue_check'] = 'FAIL'
+        new_failures = get_failed_queue(connection=Redis('localhost')).jobs[-failure_increase:]
     else:
         checks_result['failure_queue_check'] = 'ok'
+        new_failures=[]
     log.debug( f'checks_result, ``{checks_result}``' )
-    return checks_result
+    return checks_result, new_failures
     # end def evaluate_qdata()
 
 
-def build_email_message( previous_failure_count, expectations_dct, evaluation_dct, data_dct ):
+def build_email_message( new_failures, previous_failure_count, expectations_dct, evaluation_dct, data_dct ):
     """ Assembles email message.
         Called by run_code() """
     assert type(evaluation_dct) == dict
     assert type(data_dct) == dict
-    msg = f'''
-TIME-STAMP ----------------------------------------------------------
-{datetime.datetime.now()}
-    
-CHECK-RESULT --------------------------------------------------------
-{repr(evaluation_dct)}
-
-EXPECTATIONS SETTINGS -----------------------------------------------
-{pprint.pformat(expectations_dct)}
-
-ACTUAL RQINFO-DATA -------------------------------------------------- 
-{pprint.pformat(data_dct)}
-
-PREVIOUS RQINFO-DATA FAILURE-COUNT ----------------------------------
-{previous_failure_count}
-
-[END]
-
-'''
+    with open('email_template.txt', 'r') as f:
+        src = Template(f.read())
+        result = src.safe_substitute({
+            "new_failures":"\n".join([job.id+" - "+job.exc_info.split('\n')[-2] for job in new_failures]),
+            "timestamp":datetime.datetime.now(),
+            "check_result":repr(evaluation_dct),
+            "expectations_settings":pprint.pformat(expectations_dct),
+            "rqinfo_data":pprint.pformat(data_dct),
+            "previous_failure_count":previous_failure_count
+        })
+        msg = result
     log.debug( f'msg, ``{msg}``' )
     return msg
 
