@@ -24,10 +24,16 @@ import pprint
 import smtplib
 import socket
 import subprocess
-from string import Template
 from email.mime.text import MIMEText
+from pathlib import Path
+from string import Template
+
+from dotenv import load_dotenv
 from redis import Redis
 from rq import get_failed_queue
+
+DOTENV_PATH = Path(__file__).resolve().parent.parent / '.env'
+load_dotenv(dotenv_path=DOTENV_PATH, override=True)
 
 ENV_LOG_LEVEL = os.environ.get('QCHKR__LOG_LEVEL','INFO')
 level_dct = { 'DEBUG': logging.DEBUG, 'INFO': logging.INFO, }
@@ -293,8 +299,7 @@ def send_email( message ):
     log.debug( f'message, ``{message}``' )
     EMAIL_HOST = os.environ['QCHKR__EMAIL_HOST']
     EMAIL_PORT = int( os.environ['QCHKR__EMAIL_HOST_PORT'] )  
-    # EMAIL_FROM = os.environ['QCHKR__EMAIL_FROM']
-    EMAIL_FROM = 'donotreply__rq_queue_checker@brown.edu'
+    EMAIL_FROM = os.environ['QCHKR__EMAIL_FROM']
     EMAIL_RECIPIENTS = json.loads( os.environ['QCHKR__EMAIL_RECIPIENTS_JSON'] )
     HOST = socket.gethostname()
     try:

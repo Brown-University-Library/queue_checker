@@ -19,32 +19,33 @@ If other instruction files exist (Copilot, IDE rules, contributor docs) and conf
 
 - Primary language: Python
 - Target runtime: Python 3.8, matching `ruff.toml`
-- Dependency management: the legacy virtual environment and `requirements.txt`
+- Dependency management: `uv`, `pyproject.toml`, and `uv.lock`
 - Repository root: the directory containing this file, `.git/`, and `.gitignore`
 - Purpose: check expected RQ queues and workers, detect a surge in failed jobs, and send an alert email when a check fails
 
 ## How to run code
 
 - Assume the user is in the repository-root directory.
-- Activate the environment and load settings before running the script:
+- Sync the local environment and run the script with:
 
   ```zsh
-  source ../env/bin/activate
-  source ../venv_settings/env_settings.sh
-  python ./queue_check.py
+  uv sync --locked --group local
+  uv run ./queue_check.py
   ```
 
+- Runtime settings load automatically from `../.env`, in the outer `queue_checker_stuff/` directory. Use `sample_dot_env.txt` as the safe example structure when preparing that file.
 - Run the doctests with:
 
   ```zsh
-  python -m doctest ./queue_check.py
+  uv run ./run_tests.py
   ```
 
 - For verbose doctest output, run:
 
   ```zsh
-  python -m doctest -v ./queue_check.py
+  uv run ./run_tests.py --verbose
   ```
+- Use `uv sync --locked --group staging` for non-production deployment environments and `uv sync --locked --group prod` for production.
 
 ## Coding directives (Python)
 
@@ -103,19 +104,22 @@ If other instruction files exist (Copilot, IDE rules, contributor docs) and conf
 - Keep `run_code()` focused on coordinating these steps: run `rqinfo`, parse its output, load and save the prior result, evaluate the checks, build an alert, and send email when needed.
 - Keep parsing, evaluation, persistence, message construction, and email delivery in separate top-level helpers.
 - `email_template.txt` is the plain-text alert template used by `build_email_message()`.
-- `requirements.txt` pins the legacy RQ and Click versions. RQ upgrades must be coordinated with the other applications sharing Redis because incompatible RQ versions may store data differently.
+- `pyproject.toml` is the dependency source and `uv.lock` records the complete resolved environment. `requirements.txt` remains only as legacy conversion evidence.
+- The exact RQ, Click, Redis, and async-timeout pins reproduce the deployed environment. RQ upgrades must be coordinated with the other applications sharing Redis because incompatible RQ versions may store data differently.
 - The script reads the previous result from `../previous_rqinfo_data/previous_rqinfo_data.json`. Its first-run behavior creates the directory and stores the current result.
 - `rqinfo --by-queue --raw` output is an external interface. Changes to `parse_rqinfo()` must account for both queue-count lines and worker-list lines, including the en dash used when no workers are present.
 - Expected queues, expected worker counts, and the failed-job surge limit come from the JSON value in `QCHKR__EXPECTATIONS_JSON`.
-- Email delivery uses `QCHKR__EMAIL_HOST`, `QCHKR__EMAIL_HOST_PORT`, and `QCHKR__EMAIL_RECIPIENTS_JSON`.
+- Email delivery uses `QCHKR__EMAIL_FROM`, `QCHKR__EMAIL_HOST`, `QCHKR__EMAIL_HOST_PORT`, and `QCHKR__EMAIL_RECIPIENTS_JSON`.
 - Logging level comes from `QCHKR__LOG_LEVEL` and defaults to `INFO`.
+- `queue_check.py` loads the `QCHKR__*` settings from `../.env` with `override=True`, so values in the file take precedence over settings already present in the process environment.
 - Do not add real environment values, hostnames, email addresses, queue names, credentials, or operational data to the repository.
 
 ## Tests
 
 - The current test suite consists of doctests embedded in `queue_check.py`.
+- `run_tests.py` is the test entry point used locally and by the shared deployment callee. It replaces the live failed-queue lookup during doctests so tests do not require Redis.
 - New parsing or evaluation behavior should normally include a focused doctest covering the normal case and at least one failure or edge case.
-- Run `python -m doctest ./queue_check.py` after code changes.
+- Run `uv run ./run_tests.py` after code changes.
 - Tests must not require a live Redis server, SMTP server, or production environment settings unless the task specifically requires an integration test.
 
 ## Change workflow expectations
@@ -125,7 +129,7 @@ When implementing a change:
 1. Read the relevant surrounding code and match existing conventions.
 2. Make the smallest correct change that satisfies the request.
 3. Update doctests when behavior changes.
-4. Run `python -m doctest ./queue_check.py`.
+4. Run `uv sync --locked --group local` and `uv run ./run_tests.py`.
 5. If the environment cannot run the tests, still write or adjust the tests and state exactly what remains to be run.
 
 ### Commit messages
@@ -143,8 +147,13 @@ When implementing a change:
 ## Agent repository index
 
 - `queue_check.py`: executable script, doctests, RQ inspection, result evaluation, persistence, and email delivery
+- `run_tests.py`: executable doctest runner used locally and by non-production deploys
 - `email_template.txt`: alert-email body with `string.Template` placeholders
-- `requirements.txt`: pinned runtime dependencies (`rq==0.13.0` and its compatible Click version)
-- `README.md`: purpose, environment setup, test commands, expectations-data shape, and alert contents
+- `pyproject.toml`: Python 3.8 requirement, exact runtime dependencies, and the `local`, `staging`, and `prod` dependency groups
+- `uv.lock`: exact resolved dependency lock used by local and server syncs
+- `requirements.txt`: retained legacy dependency evidence; not the active installation source
+- `sample_dot_env.txt`: safe example structure for the outer `.env`
+- `README.md`: purpose, uv setup, execution and test commands, settings shape, and alert contents
 - `ruff.toml`: Python 3.8 linting and formatting rules, including 125-character lines and single quotes
-- Runtime inputs: settings from `QCHKR__*` environment variables, `rqinfo` on `PATH`, Redis on localhost, and the prior-result JSON file in the adjacent `previous_rqinfo_data` directory
+- Runtime inputs: settings loaded from the outer `.env` or existing `QCHKR__*` environment variables, `rqinfo` on `PATH`, Redis on localhost, and the prior-result JSON file in the adjacent `previous_rqinfo_data` directory
+- Deployment: the outer `script-queue-checker__tomlized_CALLER.sh` selects `staging` or `prod` and sources the shared `uv_tomlized_code_update_script_CALLEE.sh`
