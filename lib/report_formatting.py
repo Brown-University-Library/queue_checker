@@ -4,6 +4,27 @@ Provides formatting shared by queue-checker alert reports.
 
 import datetime
 
+REPORT_HEADER_WIDTH = 50
+
+
+def format_report_header(header: str) -> str:
+    """
+    Formats an uppercase report-section header with dashes through character 50.
+
+    >>> result = format_report_header('queue check: failed')
+    >>> result
+    'QUEUE CHECK: FAILED ------------------------------'
+    >>> len(result)
+    50
+
+    Called by: check_reports.build_check_summary(), check_reports.build_queue_check_report(),
+    check_reports.build_worker_check_report(), and failed_job_reports.build_failure_queue_check_report().
+    """
+    result = header.upper()
+    if len(result) < REPORT_HEADER_WIDTH:
+        result = f'{result} '.ljust(REPORT_HEADER_WIDTH, '-')
+    return result
+
 
 def format_datetime(value) -> str:
     """

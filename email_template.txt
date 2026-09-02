@@ -4,8 +4,6 @@ Server: $server
 Checked: $timestamp
 Overall result: $overall_result
 
-CHECK SUMMARY
-
 $check_summary
 
 $failure_queue_report

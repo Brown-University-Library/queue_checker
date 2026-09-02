@@ -6,7 +6,7 @@ import datetime
 import re
 from typing import Optional
 
-from lib.report_formatting import format_check_status, format_datetime
+from lib.report_formatting import format_check_status, format_datetime, format_report_header
 
 MAX_FAILED_JOBS_TO_SHOW = 3
 TRACEBACK_FRAME_PATTERN = re.compile(r'^\s*File "([^"]+)", line (\d+), in (.+)$')
@@ -169,7 +169,7 @@ def build_failure_queue_check_report(
     current_failure_count = data_dct['failed_count']
     failure_change = current_failure_count - previous_failure_count
     lines = [
-        f'FAILED-JOB CHECK: {format_check_status(evaluation_dct["failure_queue_check"])}',
+        format_report_header(f'FAILED-JOB CHECK: {format_check_status(evaluation_dct["failure_queue_check"])}'),
         '',
         f'Previous failed-job count: {previous_failure_count}',
         f'Current failed-job count: {current_failure_count}',

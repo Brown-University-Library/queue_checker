@@ -3,7 +3,7 @@ Builds queue, worker, and overall check sections for alert emails.
 """
 
 from lib.queue_evaluation import compare_queue_data, compare_worker_data
-from lib.report_formatting import format_check_status
+from lib.report_formatting import format_check_status, format_report_header
 
 
 def build_check_summary(previous_failure_count: int, expectations_dct: dict, evaluation_dct: dict, data_dct: dict) -> str:
@@ -15,6 +15,8 @@ def build_check_summary(previous_failure_count: int, expectations_dct: dict, eva
     worker_details = compare_worker_data(expectations_dct, data_dct)
     failure_change = data_dct['failed_count'] - previous_failure_count
     summary_lines = [
+        format_report_header('CHECK SUMMARY'),
+        '',
         f'- Failed jobs: {format_check_status(evaluation_dct["failure_queue_check"])}',
         f'  Previous: {previous_failure_count}',
         f'  Current: {data_dct["failed_count"]}',
@@ -49,7 +51,7 @@ def build_queue_check_report(expectations_dct: dict, evaluation_dct: dict, data_
     """
     details = compare_queue_data(expectations_dct, data_dct)
     lines = [
-        f'QUEUE CHECK: {format_check_status(evaluation_dct["queue_check"])}',
+        format_report_header(f'QUEUE CHECK: {format_check_status(evaluation_dct["queue_check"])}'),
         '',
         f'Expected queues: {len(details["expected"])}',
         f'Expected queues found: {len(details["found_expected"])}',
@@ -120,7 +122,7 @@ def build_worker_check_report(expectations_dct: dict, evaluation_dct: dict, data
     details = compare_worker_data(expectations_dct, data_dct)
     expected_count = len(expectations_dct['expected_workers'])
     lines = [
-        f'WORKER CHECK: {format_check_status(evaluation_dct["worker_check"])}',
+        format_report_header(f'WORKER CHECK: {format_check_status(evaluation_dct["worker_check"])}'),
         '',
         f'Expected worker entries: {expected_count}',
         f'Worker counts that matched: {len(details["matched"])}',
