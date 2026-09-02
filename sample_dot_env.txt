@@ -1,0 +1,24 @@
+export QCHKR__EXPECTATIONS_JSON='
+{
+  "expected_queues": [
+    "example_ingest",
+    "failed"
+  ],
+  "expected_workers": [
+    {
+      "queue": "example_ingest",
+      "worker_count": 1
+    },
+    {
+      "queue": "failed",
+      "worker_count": 0
+    }
+  ],
+  "surge_failure_limit": 0
+}
+'
+export QCHKR__EMAIL_FROM="donotreply@example.org"
+export QCHKR__EMAIL_HOST="smtp.example.org"
+export QCHKR__EMAIL_HOST_PORT="25"
+export QCHKR__EMAIL_RECIPIENTS_JSON='["alerts@example.org"]'
+export QCHKR__LOG_LEVEL="INFO"

@@ -1,0 +1,18 @@
+[project]
+name = "queue-checker"
+version = "0.0.0"
+description = "Checks expected RQ queues and workers and sends alert email when a check fails."
+readme = "README.md"
+requires-python = ">=3.8,<3.9"
+dependencies = [
+    "async-timeout==4.0.2",
+    "click==7.1.2",
+    "python-dotenv==1.0.1",
+    "redis==4.5.5",
+    "rq==0.13.0",
+]
+
+[dependency-groups]
+local = []
+staging = []
+prod = []
