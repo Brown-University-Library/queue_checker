@@ -49,13 +49,21 @@ Run the checker from the repository root:
 uv run ./queue_check.py
 ```
 
+To suppress email delivery and print the complete alert body to stdout instead:
+
+```zsh
+uv run ./queue_check.py --no-email
+```
+
+The flag produces alert output when a check fails; when all checks pass, there is no alert body to print.
+
 The command expects `rqinfo` from the locked environment, Redis on localhost, and the prior-result JSON file in the adjacent `previous_rqinfo_data/` directory. The first run creates the prior-result directory and file if necessary.
 
 Server deployments use the `staging` dependency group on non-production hosts and `prod` on production hosts. The outer `script-queue-checker__tomlized_CALLER.sh` selects the appropriate group and calls the shared uv-aware deployment script.
 
 ## Running tests
 
-The test runner executes the doctests embedded in `queue_check.py`. It replaces the live failed-queue lookup during tests, so Redis and SMTP are not required.
+The test runner executes the doctests embedded in the modules under `lib/`. It replaces the live failed-queue lookup during tests, so Redis and SMTP are not required.
 
 ```zsh
 uv run ./run_tests.py
@@ -104,11 +112,13 @@ See `sample_dot_env.txt` for a complete, non-operational example. Real hostnames
 
 When a check fails, the email includes:
 
-- The queue, worker, and failed-job check results.
-- The full expectations setting.
-- The parsed `rqinfo` data.
-- The previous failed-job count.
-- Details for newly failed jobs when available.
+- A short summary of the queue, worker, and failed-job check results.
+- Every missing expected queue, every expected queue found, and any additional queue found.
+- Every unavailable, mismatched, and matching worker-count expectation, including worker identifiers when present.
+- The previous and current failed-job counts, the change, and the allowed increase.
+- Details for at most the three newest selected failed jobs, including the originating queue, function, timestamps, exception, and deepest two traceback frames when available.
+
+The failed-job check infers selected jobs from the net increase in the failed-queue count. It does not persist job IDs between runs, so the email describes these entries as selected failed jobs rather than guaranteeing that every entry arrived after the previous run.
 
 ## Dependency note
 

@@ -1,20 +1,15 @@
-$timestamp - $check_result
+QUEUE CHECKER ALERT
 
+Server: $server
+Checked: $timestamp
+Overall result: $overall_result
 
-New Failures:
+$check_summary
 
-$new_failures
+$failure_queue_report
 
+$queue_report
 
-
-EXPECTATIONS SETTINGS -----------------------------------------------
-$expectations_settings
-
-ACTUAL RQINFO-DATA -------------------------------------------------- 
-$rqinfo_data
-
-PREVIOUS RQINFO-DATA FAILURE-COUNT ----------------------------------
-$previous_failure_count
+$worker_report
 
 [END]
-
