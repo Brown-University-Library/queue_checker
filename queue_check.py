@@ -28,6 +28,7 @@ import subprocess
 from email.mime.text import MIMEText
 from pathlib import Path
 from string import Template
+from typing import Optional
 
 from dotenv import load_dotenv
 from redis import Redis
@@ -530,7 +531,7 @@ def build_worker_check_report( expectations_dct: dict, evaluation_dct: dict, dat
     return report
 
 
-def extract_exception_details( exc_info: str ) -> dict:
+def extract_exception_details( exc_info: Optional[str] ) -> dict:  # noqa: FA100 -- keep Python 3.8-compatible union syntax
     """
     Extracts the final exception and deepest traceback frames from RQ exception text.
     Called by: format_failed_job().
