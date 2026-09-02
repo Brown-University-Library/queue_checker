@@ -55,7 +55,7 @@ Server deployments use the `staging` dependency group on non-production hosts an
 
 ## Running tests
 
-The test runner executes the doctests embedded in `lib/queue_check_helpers.py`. It replaces the live failed-queue lookup during tests, so Redis and SMTP are not required.
+The test runner executes the doctests embedded in the modules under `lib/`. It replaces the live failed-queue lookup during tests, so Redis and SMTP are not required.
 
 ```zsh
 uv run ./run_tests.py
