@@ -100,9 +100,10 @@ If other instruction files exist (Copilot, IDE rules, contributor docs) and conf
 
 ## Queue-checker structure
 
-- `queue_check.py` contains the controller and all queue-checking helpers.
+- `queue_check.py` contains the lightweight controller.
+- `lib/queue_check_helpers.py` contains queue inspection, evaluation, persistence, report-building, and email helpers.
 - Keep `run_code()` focused on coordinating these steps: run `rqinfo`, parse its output, load and save the prior result, evaluate the checks, build an alert, and send email when needed.
-- Keep parsing, evaluation, persistence, message construction, and email delivery in separate top-level helpers.
+- Keep parsing, evaluation, persistence, message construction, and email delivery in top-level helpers outside the controller.
 - `email_template.txt` is the plain-text alert template used by `build_email_message()`.
 - `pyproject.toml` is the dependency source and `uv.lock` records the complete resolved environment. `requirements.txt` remains only as legacy conversion evidence.
 - The exact RQ, Click, Redis, and async-timeout pins reproduce the deployed environment. RQ upgrades must be coordinated with the other applications sharing Redis because incompatible RQ versions may store data differently.
@@ -111,12 +112,12 @@ If other instruction files exist (Copilot, IDE rules, contributor docs) and conf
 - Expected queues, expected worker counts, and the failed-job surge limit come from the JSON value in `QCHKR__EXPECTATIONS_JSON`.
 - Email delivery uses `QCHKR__EMAIL_FROM`, `QCHKR__EMAIL_HOST`, `QCHKR__EMAIL_HOST_PORT`, and `QCHKR__EMAIL_RECIPIENTS_JSON`.
 - Logging level comes from `QCHKR__LOG_LEVEL` and defaults to `INFO`.
-- `queue_check.py` loads the `QCHKR__*` settings from `../.env` with `override=True`, so values in the file take precedence over settings already present in the process environment.
+- `lib/queue_check_helpers.py` loads the `QCHKR__*` settings from `../.env` with `override=True`, so values in the file take precedence over settings already present in the process environment.
 - Do not add real environment values, hostnames, email addresses, queue names, credentials, or operational data to the repository.
 
 ## Tests
 
-- The current test suite consists of doctests embedded in `queue_check.py`.
+- The current test suite consists of doctests embedded in `lib/queue_check_helpers.py`.
 - `run_tests.py` is the test entry point used locally and by the shared deployment callee. It replaces the live failed-queue lookup during doctests so tests do not require Redis.
 - New parsing or evaluation behavior should normally include a focused doctest covering the normal case and at least one failure or edge case.
 - Run `uv run ./run_tests.py` after code changes.
@@ -146,7 +147,9 @@ When implementing a change:
 
 ## Agent repository index
 
-- `queue_check.py`: executable script, doctests, RQ inspection, result evaluation, persistence, and email delivery
+- `queue_check.py`: lightweight executable controller
+- `lib/queue_check_helpers.py`: settings, doctests, RQ inspection, result evaluation, persistence, report-building, and email delivery
+- `lib/__init__.py`: marks `lib` as an importable package
 - `run_tests.py`: executable doctest runner used locally and by non-production deploys
 - `email_template.txt`: alert-email body with `string.Template` placeholders
 - `pyproject.toml`: Python 3.8 requirement, exact runtime dependencies, and the `local`, `staging`, and `prod` dependency groups
