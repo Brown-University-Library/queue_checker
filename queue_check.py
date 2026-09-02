@@ -39,6 +39,13 @@ load_dotenv(dotenv_path=DOTENV_PATH, override=True)
 MAX_FAILED_JOBS_TO_SHOW = 3
 TRACEBACK_FRAME_PATTERN = re.compile(r'^\s*File "([^"]+)", line (\d+), in (.+)$')
 
+
+class QueueCheckerError(Exception):
+    """
+    Indicates that the queue checker cannot complete an operation.
+    """
+
+
 ENV_LOG_LEVEL = os.environ.get('QCHKR__LOG_LEVEL','INFO')
 level_dct = { 'DEBUG': logging.DEBUG, 'INFO': logging.INFO, }
 logging.basicConfig(  # no file-logging for now
@@ -84,7 +91,6 @@ def run_code():
         msg: str = build_email_message( new_failures, previous_failure_count, expectations, evaluation_dct, data_dct )
         send_email( message=msg )
     log.info( f'evaluation_dct, ``{pprint.pformat(evaluation_dct)}``' )
-    return 
 
 
 ## helper functions called by run_code() ----------------------------
@@ -102,7 +108,8 @@ def load_previous_rqinfo_data( current_rqinfo_data ):
             previous_rqinfo_data = json.loads( f.read() )
         assert type(previous_rqinfo_data) == dict
         log.debug( f' previous_rqinfo_data, loaded from file, ``{pprint.pformat(previous_rqinfo_data)}``' )
-    except Exception as e:
+    ## Any load, parse, or validation failure uses current data so the first run can continue.
+    except Exception as e:  # noqa: BLE001
         log.warning( f'exception loading previous data; err, ``{e}``; will save existing data.' )
         save_rqinfo_data( current_rqinfo_data )
         previous_rqinfo_data = current_rqinfo_data
@@ -127,7 +134,7 @@ def get_rqinfo() -> str:
     - `--by-queue` returns the normal queue output, but shows workers associated with each queue.
     - `--raw` doesn't return the summary line or the job-bar, just the basic data.
     """
-    result = subprocess.run(['rqinfo', '--by-queue', '--raw'], stdout=subprocess.PIPE)
+    result = subprocess.run(['rqinfo', '--by-queue', '--raw'], stdout=subprocess.PIPE, check=False)
     output = result.stdout.decode()
     assert type(output) == str
     log.debug( f'output, ``{output}``' )
@@ -285,9 +292,8 @@ def save_rqinfo_data( data_dct ):
             f.write( jsn )
     except Exception as e:
         log.exception( 'problem saving rqinfo data; traceback follows' )
-        raise Exception( f'problem saving rqinfo data; error, ``{repr(e)}``' )
+        raise QueueCheckerError( f'problem saving rqinfo data; error, ``{e!r}``' ) from e
     log.debug( 'rqinfo data saved' )
-    return
 
 
 def evaluate_qdata( previous_failed_count, expectations, data_dct ):
@@ -779,8 +785,7 @@ def send_email( message ):
     except Exception as e:
         err = repr( e )
         log.exception( f'Problem sending queue-checker mail, ``{err}``' )
-        raise Exception( err )
-    return
+        raise QueueCheckerError( err ) from e
 
 
 ## dunder-main ------------------------------------------------------
