@@ -104,11 +104,13 @@ See `sample_dot_env.txt` for a complete, non-operational example. Real hostnames
 
 When a check fails, the email includes:
 
-- The queue, worker, and failed-job check results.
-- The full expectations setting.
-- The parsed `rqinfo` data.
-- The previous failed-job count.
-- Details for newly failed jobs when available.
+- A short summary of the queue, worker, and failed-job check results.
+- Every missing expected queue, every expected queue found, and any additional queue found.
+- Every unavailable, mismatched, and matching worker-count expectation, including worker identifiers when present.
+- The previous and current failed-job counts, the change, and the allowed increase.
+- Details for at most the three newest selected failed jobs, including the originating queue, function, timestamps, exception, and deepest two traceback frames when available.
+
+The failed-job check infers selected jobs from the net increase in the failed-queue count. It does not persist job IDs between runs, so the email describes these entries as selected failed jobs rather than guaranteeing that every entry arrived after the previous run.
 
 ## Dependency note
 
