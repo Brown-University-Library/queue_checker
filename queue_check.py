@@ -1,9 +1,10 @@
 """
-Coordinates the queue checks and sends an alert when a check fails.
+Coordinates the queue checks and delivers an alert when a check fails.
 
 Run from the repository root with: `uv run ./queue_check.py`
 """
 
+import argparse
 import logging
 import pprint
 
@@ -12,9 +13,39 @@ from lib import email_delivery, queue_data, queue_evaluation, settings
 log = logging.getLogger(__name__)
 
 
-def run_code() -> None:
+def parse_args() -> argparse.Namespace:
     """
-    Runs the queue checks and sends an alert when a check fails.
+    Parses command-line arguments.
+    Called by: dunder-main.
+    """
+    parser = argparse.ArgumentParser(description='Checks expected RQ queues and workers.')
+    parser.add_argument(
+        '--no-email',
+        action='store_true',
+        help='Prints the complete alert to stdout instead of sending email.',
+    )
+    args = parser.parse_args()
+    return args
+
+
+def deliver_alert(message: str, no_email: bool) -> None:
+    """
+    Prints an alert to stdout or sends it by email.
+
+    >>> deliver_alert('Example alert\\n', no_email=True)
+    Example alert
+
+    Called by: run_code().
+    """
+    if no_email:
+        print(message, end='')
+    else:
+        email_delivery.send_email(message=message)
+
+
+def run_code(no_email: bool = False) -> None:
+    """
+    Runs the queue checks and delivers an alert when a check fails.
     Called by: dunder-main.
     """
     output = queue_data.get_rqinfo()
@@ -48,10 +79,11 @@ def run_code() -> None:
             evaluation_dct,
             data_dct,
         )
-        email_delivery.send_email(message=message)
+        deliver_alert(message, no_email)
 
     log.info(f'evaluation_dct, ``{pprint.pformat(evaluation_dct)}``')
 
 
 if __name__ == '__main__':
-    run_code()
+    arguments = parse_args()
+    run_code(no_email=arguments.no_email)

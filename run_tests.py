@@ -8,9 +8,11 @@ import argparse
 import doctest
 from unittest.mock import Mock, patch
 
+import queue_check
 from lib import check_reports, email_delivery, failed_job_reports, queue_data, queue_evaluation
 
 DOCTEST_MODULES = (
+    queue_check,
     queue_data,
     queue_evaluation,
     check_reports,

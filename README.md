@@ -49,6 +49,14 @@ Run the checker from the repository root:
 uv run ./queue_check.py
 ```
 
+To suppress email delivery and print the complete alert body to stdout instead:
+
+```zsh
+uv run ./queue_check.py --no-email
+```
+
+The flag produces alert output when a check fails; when all checks pass, there is no alert body to print.
+
 The command expects `rqinfo` from the locked environment, Redis on localhost, and the prior-result JSON file in the adjacent `previous_rqinfo_data/` directory. The first run creates the prior-result directory and file if necessary.
 
 Server deployments use the `staging` dependency group on non-production hosts and `prod` on production hosts. The outer `script-queue-checker__tomlized_CALLER.sh` selects the appropriate group and calls the shared uv-aware deployment script.

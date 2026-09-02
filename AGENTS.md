@@ -33,6 +33,7 @@ If other instruction files exist (Copilot, IDE rules, contributor docs) and conf
   uv run ./queue_check.py
   ```
 
+- Use `uv run ./queue_check.py --no-email` to print the complete alert to stdout instead of sending email.
 - Runtime settings load automatically from `../.env`, in the outer `queue_checker_stuff/` directory. Use `sample_dot_env.txt` as the safe example structure when preparing that file.
 - Run the doctests with:
 
@@ -106,7 +107,7 @@ If other instruction files exist (Copilot, IDE rules, contributor docs) and conf
 - `lib/queue_evaluation.py` compares queue data with expectations and evaluates the checks.
 - `lib/check_reports.py`, `lib/failed_job_reports.py`, and `lib/report_formatting.py` build the alert's report sections.
 - `lib/email_delivery.py` assembles and sends alert emails, and `lib/errors.py` defines the shared application exception.
-- Keep `run_code()` focused on coordinating these steps: run `rqinfo`, parse its output, load and save the prior result, evaluate the checks, build an alert, and send email when needed.
+- Keep `run_code()` focused on coordinating these steps: run `rqinfo`, parse its output, load and save the prior result, evaluate the checks, build an alert, and send or print it when needed.
 - Keep parsing, evaluation, persistence, message construction, and email delivery in top-level helpers outside the controller.
 - `email_template.txt` is the plain-text alert template used by `build_email_message()`.
 - `pyproject.toml` is the dependency source and `uv.lock` records the complete resolved environment. `requirements.txt` remains only as legacy conversion evidence.
@@ -121,7 +122,7 @@ If other instruction files exist (Copilot, IDE rules, contributor docs) and conf
 
 ## Tests
 
-- The current test suite consists of doctests embedded in the relevant modules under `lib/`.
+- The current test suite consists of doctests embedded in `queue_check.py` and the relevant modules under `lib/`.
 - `run_tests.py` is the test entry point used locally and by the shared deployment callee. It replaces the live failed-queue lookup during doctests so tests do not require Redis.
 - New parsing or evaluation behavior should normally include a focused doctest covering the normal case and at least one failure or edge case.
 - Run `uv run ./run_tests.py` after code changes.
