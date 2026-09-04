@@ -8,8 +8,14 @@ $check_summary
 
 $failure_queue_report
 
-$queue_report
-
 $worker_report
+
+$queue_registration_report
+
+$data_collection_report
+
+$suggested_verification
+
+$alert_reasons
 
 [END]

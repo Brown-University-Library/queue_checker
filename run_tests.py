@@ -42,7 +42,7 @@ def run_tests() -> int:
     failed_queue = Mock()
     failed_queue.jobs = []
     failed_count = 0
-    with patch.object(queue_evaluation, 'get_failed_queue', return_value=failed_queue):
+    with patch.object(queue_data, 'get_failed_queue', return_value=failed_queue):
         for doctest_module in DOCTEST_MODULES:
             test_results = doctest.testmod(doctest_module, verbose=args.verbose)
             failed_count += test_results.failed

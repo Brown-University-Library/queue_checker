@@ -1,5 +1,5 @@
 """
-Coordinates the queue checks and delivers an alert when a check fails.
+Coordinates the queue checks and delivers an alert or inspection error when attention is required.
 
 Run from the repository root with: `uv run ./queue_check.py`
 """
@@ -9,6 +9,7 @@ import logging
 import pprint
 
 from lib import email_delivery, queue_data, queue_evaluation, settings
+from lib.errors import QueueCheckerError
 
 log = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ def parse_args() -> argparse.Namespace:
     Parses command-line arguments.
     Called by: dunder-main.
     """
-    parser = argparse.ArgumentParser(description='Checks expected RQ queues and workers.')
+    parser = argparse.ArgumentParser(description='Checks expected RQ worker subscriptions and failed-job activity.')
     parser.add_argument(
         '--no-email',
         action='store_true',
@@ -28,7 +29,7 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def deliver_alert(message: str, no_email: bool) -> None:
+def deliver_alert(message: str, no_email: bool, collection_error: bool = False) -> None:
     """
     Prints an alert to stdout or sends it by email.
 
@@ -40,7 +41,7 @@ def deliver_alert(message: str, no_email: bool) -> None:
     if no_email:
         print(message, end='')
     else:
-        email_delivery.send_email(message=message)
+        email_delivery.send_email(message=message, collection_error=collection_error)
 
 
 def run_code(no_email: bool = False) -> None:
@@ -48,40 +49,50 @@ def run_code(no_email: bool = False) -> None:
     Runs the queue checks and delivers an alert when a check fails.
     Called by: dunder-main.
     """
-    output = queue_data.get_rqinfo()
-    assert type(output) == str
+    collection_error = None
+    try:
+        data_dct = queue_data.collect_rq_data()
+        assert type(data_dct) == dict
+    except QueueCheckerError as error:
+        collection_error = str(error)
 
-    data_dct = queue_data.parse_rqinfo(output)
-    assert type(data_dct) == dict
+    if collection_error:
+        message = email_delivery.build_collection_error_message(collection_error)
+        deliver_alert(message, no_email, collection_error=True)
+        log.error(f'RQ data collection failed, ``{collection_error}``')
+    else:
+        previous_rqinfo_data = queue_data.load_previous_rqinfo_data(data_dct)
+        assert type(previous_rqinfo_data) == dict
+        queue_data.save_rqinfo_data(data_dct)
 
-    previous_rqinfo_data = queue_data.load_previous_rqinfo_data(data_dct)
-    assert type(previous_rqinfo_data) == dict
-    queue_data.save_rqinfo_data(data_dct)
-
-    previous_failure_count = previous_rqinfo_data['failed_count']
-    evaluation_dct, new_failures = queue_evaluation.evaluate_qdata(
-        previous_failure_count,
-        settings.expectations,
-        data_dct,
-    )
-    assert type(evaluation_dct) == dict
-
-    all_checks_ok = {
-        'queue_check': 'ok',
-        'worker_check': 'ok',
-        'failure_queue_check': 'ok',
-    }
-    if evaluation_dct != all_checks_ok:
-        message = email_delivery.build_email_message(
-            new_failures,
+        previous_failure_count = previous_rqinfo_data['failed_count']
+        evaluation_dct = queue_evaluation.evaluate_qdata(
             previous_failure_count,
             settings.expectations,
-            evaluation_dct,
             data_dct,
         )
-        deliver_alert(message, no_email)
+        assert type(evaluation_dct) == dict
 
-    log.info(f'evaluation_dct, ``{pprint.pformat(evaluation_dct)}``')
+        failed_job_details = {'requested': False, 'jobs': [], 'error': None}
+        if evaluation_dct['failure_queue_check'] == 'FAIL':
+            failure_increase = data_dct['failed_count'] - previous_failure_count
+            failed_job_details = queue_data.get_failed_job_details(failure_increase)
+
+        all_checks_ok = {
+            'worker_check': 'ok',
+            'failure_queue_check': 'ok',
+        }
+        if evaluation_dct != all_checks_ok:
+            message = email_delivery.build_email_message(
+                failed_job_details,
+                previous_failure_count,
+                settings.expectations,
+                evaluation_dct,
+                data_dct,
+            )
+            deliver_alert(message, no_email)
+
+        log.info(f'evaluation_dct, ``{pprint.pformat(evaluation_dct)}``')
 
 
 if __name__ == '__main__':
