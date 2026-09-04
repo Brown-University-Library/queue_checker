@@ -1,6 +1,6 @@
 # Queue Checker
 
-Queue Checker detects missing RQ queues or workers and increases in failed jobs. When a check fails, it sends an alert email containing the check results and supporting data.
+Queue Checker detects incorrect RQ worker-subscription counts, waiting jobs without listeners, and increases in failed jobs. It reports queue registration separately as information. When an alerting check fails, it sends an email containing the results and supporting data.
 
 ## Contents
 
@@ -16,15 +16,17 @@ Queue Checker detects missing RQ queues or workers and increases in failed jobs.
 
 Servers sometimes restart, and occasionally a queue worker does not restart with them. This script checks:
 
-- That every expected queue exists.
-- That each queue has the expected number of workers.
+- That each expected queue has the expected number of active worker subscriptions.
+- Whether an ordinary queue has waiting jobs but no active subscribers.
 - Whether the failed-job count increased beyond the configured limit.
 
-An email is sent if any check fails.
+Queue registration is informational because RQ 0.13 may not register a queue name until a job has been enqueued. An unregistered expected queue does not cause an alert when the independent worker inventory shows the correct subscriptions.
+
+The checker runs separate queue and worker inspections. A failed command, malformed output, or incomplete worker record such as `worker example.123 ?` produces a data-collection error instead of inferred queue or worker results. The prior successful data file is not replaced after an inspection error.
 
 ## Local install
 
-The deployed runtime is Python 3.8. Dependencies are managed with `uv`, `pyproject.toml`, and `uv.lock`.
+Though tests can be run locally, to actually _use_ the queue-check locally requires a running Redis instance, with queues and workers in-place.
 
 ```zsh
 cd /path/to/queue_checker_stuff/
@@ -55,13 +57,15 @@ To suppress email delivery and print the complete alert body to stdout instead:
 uv run ./queue_check.py --no-email
 ```
 
-The flag produces alert output when a check fails; when all checks pass, there is no alert body to print.
+The flag produces alert or data-collection-error output when attention is required; when both alerting checks pass, there is no report body to print.
 
-The command expects `rqinfo` from the locked environment, Redis on localhost, and the prior-result JSON file in the adjacent `previous_rqinfo_data/` directory. The first run creates the prior-result directory and file if necessary.
+The command expects `rqinfo` from the locked environment, Redis on localhost, and the prior-result JSON file in the adjacent `previous_rqinfo_data/` directory. It runs both `rqinfo --by-queue --raw` and `rqinfo --only-workers --raw`. The first run creates the prior-result directory and file if necessary.
 
-Server deployments use the `staging` dependency group on non-production hosts and `prod` on production hosts. The outer `script-queue-checker__tomlized_CALLER.sh` selects the appropriate group and calls the shared uv-aware deployment script.
+Server deployments use the `staging` dependency group on non-production hosts and `prod` on production hosts. For deployment, the project's code-update-script caller specifies the appropriate group and calls the shared uv-aware deployment script.
 
 ## Running tests
+
+This project is unusual in that all the tests are doctests.
 
 The test runner executes the doctests embedded in the modules under `lib/`. It replaces the live failed-queue lookup during tests, so Redis and SMTP are not required.
 
@@ -112,14 +116,18 @@ See `sample_dot_env.txt` for a complete, non-operational example. Real hostnames
 
 When a check fails, the email includes:
 
-- A short summary of the queue, worker, and failed-job check results.
-- Every missing expected queue, every expected queue found, and any additional queue found.
-- Every unavailable, mismatched, and matching worker-count expectation, including worker identifiers when present.
+- A short summary of the worker-subscription and failed-job checks.
+- Every expected worker-subscription count, its observed count, and worker identifiers where available.
+- Any ordinary queue that has waiting jobs but no active subscriber.
+- Informational lists of expected registered names, expected names not registered yet, and additional registered names.
 - The previous and current failed-job counts, the change, and the allowed increase.
 - Details for at most the three newest selected failed jobs, including the originating queue, function, timestamps, exception, and deepest two traceback frames when available.
+- Data-collection status, direct verification commands, and a concise list of alert reasons.
 
 The failed-job check infers selected jobs from the net increase in the failed-queue count. It does not persist job IDs between runs, so the email describes these entries as selected failed jobs rather than guaranteeing that every entry arrived after the previous run.
 
+If an RQ command fails or either command returns malformed or incomplete data, the checker sends a separate inspection-error message. That message does not claim that queues or workers are missing when the source information is unreliable.
+
 ## Dependency note
 
-The initial uv conversion intentionally preserves the deployed RQ, Click, Redis, and async-timeout versions. RQ upgrades must be coordinated with other applications sharing Redis because incompatible versions may store queue data differently. `requirements.txt` is retained only as legacy conversion evidence; `pyproject.toml` and `uv.lock` are the active dependency files.
+The initial uv conversion intentionally preserves the deployed RQ, Click, Redis, and async-timeout versions. RQ upgrades must be coordinated with other applications sharing Redis because incompatible versions may store queue data differently. `pyproject.toml` and `uv.lock` are the active dependency files.

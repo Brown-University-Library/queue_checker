@@ -21,7 +21,7 @@ If other instruction files exist (Copilot, IDE rules, contributor docs) and conf
 - Target runtime: Python 3.8, matching `ruff.toml`
 - Dependency management: `uv`, `pyproject.toml`, and `uv.lock`
 - Repository root: the directory containing this file, `.git/`, and `.gitignore`
-- Purpose: check expected RQ queues and workers, detect a surge in failed jobs, and send an alert email when a check fails
+- Purpose: check expected RQ worker subscriptions, waiting jobs without listeners, and failed-job increases; report queue registration separately; and send an alert email when attention is required
 
 ## How to run code
 
@@ -107,13 +107,13 @@ If other instruction files exist (Copilot, IDE rules, contributor docs) and conf
 - `lib/queue_evaluation.py` compares queue data with expectations and evaluates the checks.
 - `lib/check_reports.py`, `lib/failed_job_reports.py`, and `lib/report_formatting.py` build the alert's report sections.
 - `lib/email_delivery.py` assembles and sends alert emails, and `lib/errors.py` defines the shared application exception.
-- Keep `run_code()` focused on coordinating these steps: run `rqinfo`, parse its output, load and save the prior result, evaluate the checks, build an alert, and send or print it when needed.
+- Keep `run_code()` focused on coordinating these steps: run the queue and worker `rqinfo` inspections, parse their output, load and save the prior result, evaluate the checks, build an alert, and send or print it when needed.
 - Keep parsing, evaluation, persistence, message construction, and email delivery in top-level helpers outside the controller.
 - `email_template.txt` is the plain-text alert template used by `build_email_message()`.
 - `pyproject.toml` is the dependency source and `uv.lock` records the complete resolved environment. `requirements.txt` remains only as legacy conversion evidence.
 - The exact RQ, Click, Redis, and async-timeout pins reproduce the deployed environment. RQ upgrades must be coordinated with the other applications sharing Redis because incompatible RQ versions may store data differently.
 - The script reads the previous result from `../previous_rqinfo_data/previous_rqinfo_data.json`. Its first-run behavior creates the directory and stores the current result.
-- `rqinfo --by-queue --raw` output is an external interface. Changes to `parse_rqinfo()` must account for both queue-count lines and worker-list lines, including the en dash used when no workers are present.
+- `rqinfo --by-queue --raw` and `rqinfo --only-workers --raw` outputs are external interfaces. Queue parsing must account for queue-count lines and worker-list lines, including the en dash used when no workers are present. Worker parsing must account for multi-queue workers and reject incomplete `worker <name> ?` records without inferring subscription counts.
 - Expected queues, expected worker counts, and the failed-job surge limit come from the JSON value in `QCHKR__EXPECTATIONS_JSON`.
 - Email delivery uses `QCHKR__EMAIL_FROM`, `QCHKR__EMAIL_HOST`, `QCHKR__EMAIL_HOST_PORT`, and `QCHKR__EMAIL_RECIPIENTS_JSON`.
 - Logging level comes from `QCHKR__LOG_LEVEL` and defaults to `INFO`.
@@ -154,9 +154,9 @@ When implementing a change:
 
 - `queue_check.py`: lightweight executable controller
 - `lib/settings.py`: environment loading and logging configuration
-- `lib/queue_data.py`: RQ inspection, parsing, and prior-result persistence
-- `lib/queue_evaluation.py`: expected-queue, worker-count, and failed-job evaluation
-- `lib/check_reports.py`: overall, queue, and worker report sections
+- `lib/queue_data.py`: independent queue and worker inspection, parsing, failed-job detail collection, and prior-result persistence
+- `lib/queue_evaluation.py`: worker-subscription, waiting-job, failed-job, and informational queue-registration comparisons
+- `lib/check_reports.py`: summary, worker-subscription, queue-registration, data-collection, verification, and alert-reason sections
 - `lib/failed_job_reports.py`: failed-job selection, formatting, and report section
 - `lib/report_formatting.py`: shared status and datetime formatting
 - `lib/email_delivery.py`: alert assembly and SMTP delivery
