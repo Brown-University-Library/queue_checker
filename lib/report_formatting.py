@@ -17,8 +17,8 @@ def format_report_header(header: str) -> str:
     >>> len(result)
     50
 
-    Called by: check_reports.build_check_summary(), check_reports.build_queue_check_report(),
-    check_reports.build_worker_check_report(), and failed_job_reports.build_failure_queue_check_report().
+    Called by: check_reports report builders, email_delivery.build_collection_error_message(), and
+    failed_job_reports.build_failure_queue_check_report().
     """
     result = header.upper()
     if len(result) < REPORT_HEADER_WIDTH:
@@ -43,8 +43,8 @@ def format_datetime(value) -> str:
 def format_check_status(status: str) -> str:
     """
     Formats an internal check result for an operator-facing report.
-    Called by: check_reports.build_check_summary(), check_reports.build_queue_check_report(),
-    check_reports.build_worker_check_report(), and failed_job_reports.build_failure_queue_check_report().
+    Called by: check_reports.build_check_summary(), check_reports.build_worker_subscription_report(), and
+    failed_job_reports.build_failure_queue_check_report().
     """
     result = 'FAILED' if status == 'FAIL' else status.upper()
     return result

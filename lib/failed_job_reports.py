@@ -102,7 +102,7 @@ def format_failed_job(job, display_number: int, displayed_count: int) -> str:
         f'FAILED JOB {display_number} OF {displayed_count}{newest_label}',
         '',
         f'Job ID: {job_id}',
-        f'Queue: {queue}',
+        f'Originating queue: {queue}',
         f'Function: {function}',
         f'Enqueued: {format_datetime(getattr(job, "enqueued_at", None))}',
         f'Started: {format_datetime(getattr(job, "started_at", None))}',
@@ -133,11 +133,10 @@ def format_failed_job(job, display_number: int, displayed_count: int) -> str:
 
 
 def build_failure_queue_check_report(
-    new_failures: list, previous_failure_count: int, expectations_dct: dict, evaluation_dct: dict, data_dct: dict
+    failed_job_details: dict, previous_failure_count: int, expectations_dct: dict, evaluation_dct: dict, data_dct: dict
 ) -> str:
     """
     Builds the failed-job count comparison and limited selected-job details.
-    Called by: email_delivery.build_email_message().
 
     >>> failed_job_class = type('FailedJob', (), {})
     >>> failed_jobs = []
@@ -152,7 +151,7 @@ def build_failure_queue_check_report(
     ...     job.exc_info = 'ValueError: example'
     ...     failed_jobs.append(job)
     >>> report = build_failure_queue_check_report(
-    ...     failed_jobs,
+    ...     {'requested': True, 'jobs': failed_jobs, 'error': None},
     ...     10,
     ...     {'surge_failure_limit': 0},
     ...     {'failure_queue_check': 'FAIL'},
@@ -164,36 +163,59 @@ def build_failure_queue_check_report(
     True
     >>> 'Job ID: job-0' in report
     False
+    >>> error_report = build_failure_queue_check_report(
+    ...     {'requested': True, 'jobs': [], 'error': 'ExampleError: unavailable'},
+    ...     10,
+    ...     {'surge_failure_limit': 0},
+    ...     {'failure_queue_check': 'FAIL'},
+    ...     {'failed_count': 14},
+    ... )
+    >>> 'Selected failed-job details could not be loaded.' in error_report
+    True
 
+    Called by: email_delivery.build_email_message().
     """
     current_failure_count = data_dct['failed_count']
     failure_change = current_failure_count - previous_failure_count
     lines = [
         format_report_header(f'FAILED-JOB CHECK: {format_check_status(evaluation_dct["failure_queue_check"])}'),
         '',
-        f'Previous failed-job count: {previous_failure_count}',
-        f'Current failed-job count: {current_failure_count}',
-        f'Change: {failure_change}',
-        f'Allowed increase: {expectations_dct["surge_failure_limit"]}',
+        'Expectation:',
+        f'- Allowed failed-job increase: {expectations_dct["surge_failure_limit"]}',
+        '',
+        'Observed:',
+        f'- Previous failed-job count: {previous_failure_count}',
+        f'- Current failed-job count: {current_failure_count}',
+        f'- Change: {failure_change}',
     ]
     if evaluation_dct['failure_queue_check'] == 'FAIL':
-        sorted_failures = sort_failed_jobs_newest_first(list(new_failures))
-        failures_to_show = sorted_failures[:MAX_FAILED_JOBS_TO_SHOW]
-        available_count = len(sorted_failures)
-        displayed_count = len(failures_to_show)
-        lines.extend(['', f'Selected failed-job details available: {available_count}'])
-        if displayed_count:
-            if available_count == 1:
-                lines.append('Showing the newest selected failed job.')
-            else:
-                lines.append(f'Showing the newest {displayed_count} of {available_count} selected failed jobs.')
-            hidden_count = available_count - displayed_count
-            if hidden_count:
-                hidden_label = 'job is' if hidden_count == 1 else 'jobs are'
-                lines.append(f'{hidden_count} additional selected {hidden_label} not shown.')
-            for display_number, job in enumerate(failures_to_show, start=1):
-                lines.extend(['', format_failed_job(job, display_number, displayed_count)])
+        if failed_job_details['error']:
+            lines.extend(
+                [
+                    '',
+                    'Selected failed-job details available: Unknown',
+                    'Selected failed-job details could not be loaded.',
+                    f'Error: {failed_job_details["error"]}',
+                ]
+            )
         else:
-            lines.extend(['', 'No selected failed-job details were available.'])
+            sorted_failures = sort_failed_jobs_newest_first(list(failed_job_details['jobs']))
+            failures_to_show = sorted_failures[:MAX_FAILED_JOBS_TO_SHOW]
+            available_count = len(sorted_failures)
+            displayed_count = len(failures_to_show)
+            lines.extend(['', f'Selected failed-job details available: {available_count}'])
+            if displayed_count:
+                if available_count == 1:
+                    lines.append('Showing the newest selected failed job.')
+                else:
+                    lines.append(f'Showing the newest {displayed_count} of {available_count} selected failed jobs.')
+                hidden_count = available_count - displayed_count
+                if hidden_count:
+                    hidden_label = 'job is' if hidden_count == 1 else 'jobs are'
+                    lines.append(f'{hidden_count} additional selected {hidden_label} not shown.')
+                for display_number, job in enumerate(failures_to_show, start=1):
+                    lines.extend(['', format_failed_job(job, display_number, displayed_count)])
+            else:
+                lines.extend(['', 'No selected failed-job details were available.'])
     report = '\n'.join(lines)
     return report
