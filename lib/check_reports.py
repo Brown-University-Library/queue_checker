@@ -2,6 +2,8 @@
 Builds queue-registration, worker-subscription, collection, and summary sections.
 """
 
+import os
+
 from lib.queue_evaluation import compare_queue_data, compare_worker_data, find_unserved_queues
 from lib.report_formatting import format_check_status, format_report_header
 
@@ -219,20 +221,25 @@ def build_data_collection_report(failed_job_details: dict) -> str:
     return report
 
 
-def build_suggested_verification(expectations_dct: dict) -> str:
+def build_suggested_verification() -> str:
     """
-    Builds copyable read-only commands for checking the alert directly.
+    Builds a link to the configured troubleshooting suggestions.
+
+    >>> from unittest.mock import patch
+    >>> with patch.dict(os.environ, {'QCHKR__TROUBLESHOOTING_URL': 'https://example.org/troubleshooting'}):
+    ...     report = build_suggested_verification()
+    >>> report.splitlines()[-2:]
+    ['For troubleshooting suggestions, see this url:', '<https://example.org/troubleshooting>']
+
     Called by: email_delivery.build_email_message().
+    Called by: email_delivery.build_collection_error_message().
     """
-    expected_queue_arguments = ' '.join(expectations_dct['expected_queues'])
+    troubleshooting_url: str = os.environ['QCHKR__TROUBLESHOOTING_URL']
     lines = [
         format_report_header('SUGGESTED VERIFICATION'),
         '',
-        '1. Inspect every active worker and its declared queues:',
-        '   uv run --no-sync rqinfo --only-workers --raw',
-        '',
-        '2. Inspect the expected queues explicitly:',
-        f'   uv run --no-sync rqinfo --by-queue --raw {expected_queue_arguments}',
+        'For troubleshooting suggestions, see this url:',
+        f'<{troubleshooting_url}>',
     ]
     report = '\n'.join(lines)
     return report

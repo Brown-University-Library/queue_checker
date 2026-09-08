@@ -22,3 +22,4 @@ export QCHKR__EMAIL_HOST="smtp.example.org"
 export QCHKR__EMAIL_HOST_PORT="25"
 export QCHKR__EMAIL_RECIPIENTS_JSON='["alerts@example.org"]'
 export QCHKR__LOG_LEVEL="INFO"
+export QCHKR__TROUBLESHOOTING_URL="https://example.org/troubleshooting"
