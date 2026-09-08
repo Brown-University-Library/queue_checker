@@ -6,6 +6,7 @@ Runs the queue-checker doctests.
 
 import argparse
 import doctest
+import os
 from unittest.mock import Mock, patch
 
 import queue_check
@@ -42,7 +43,9 @@ def run_tests() -> int:
     failed_queue = Mock()
     failed_queue.jobs = []
     failed_count = 0
-    with patch.object(queue_data, 'get_failed_queue', return_value=failed_queue):
+    with patch.object(queue_data, 'get_failed_queue', return_value=failed_queue), patch.dict(
+        os.environ, {'QCHKR__TROUBLESHOOTING_URL': 'https://example.org/troubleshooting'}
+    ):
         for doctest_module in DOCTEST_MODULES:
             test_results = doctest.testmod(doctest_module, verbose=args.verbose)
             failed_count += test_results.failed

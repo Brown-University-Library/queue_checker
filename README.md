@@ -91,6 +91,7 @@ The outer `.env` uses these keys:
 - `QCHKR__EMAIL_HOST_PORT`: SMTP port.
 - `QCHKR__EMAIL_RECIPIENTS_JSON`: JSON list of recipient addresses.
 - `QCHKR__LOG_LEVEL`: logging level, normally `INFO` or `DEBUG`.
+- `QCHKR__TROUBLESHOOTING_URL`: required URL for troubleshooting suggestions, without enclosing angle brackets. The checker adds the brackets in alert and inspection-error emails.
 
 The expectations value follows this shape:
 
@@ -122,7 +123,7 @@ When a check fails, the email includes:
 - Informational lists of expected registered names, expected names not registered yet, and additional registered names.
 - The previous and current failed-job counts, the change, and the allowed increase.
 - Details for at most the three newest selected failed jobs, including the originating queue, function, timestamps, exception, and deepest two traceback frames when available.
-- Data-collection status, direct verification commands, and a concise list of alert reasons.
+- Data-collection status, a link to troubleshooting suggestions, and a concise list of alert reasons.
 
 The failed-job check infers selected jobs from the net increase in the failed-queue count. It does not persist job IDs between runs, so the email describes these entries as selected failed jobs rather than guaranteeing that every entry arrived after the previous run.
 

@@ -95,7 +95,7 @@ def build_email_message(
                 'worker_report': build_worker_subscription_report(expectations_dct, evaluation_dct, data_dct),
                 'queue_registration_report': build_queue_registration_report(expectations_dct, data_dct),
                 'data_collection_report': build_data_collection_report(failed_job_details),
-                'suggested_verification': build_suggested_verification(expectations_dct),
+                'suggested_verification': build_suggested_verification(),
                 'alert_reasons': build_alert_reasons(
                     evaluation_dct,
                     data_dct,
@@ -141,13 +141,7 @@ def build_collection_error_message(error_message: str) -> str:
         'No queue or worker health conclusions were inferred.',
         'The prior successful data file was not replaced.',
         '',
-        format_report_header('SUGGESTED VERIFICATION'),
-        '',
-        '1. Inspect every active worker and its declared queues:',
-        '   uv run --no-sync rqinfo --only-workers --raw',
-        '',
-        '2. Inspect registered queues and job counts:',
-        '   uv run --no-sync rqinfo --by-queue --raw',
+        build_suggested_verification(),
         '',
         '[END]',
     ]
