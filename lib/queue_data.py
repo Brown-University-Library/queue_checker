@@ -227,6 +227,12 @@ def get_failed_registry_queues(expectations: dict) -> list:
     ['create_jp2', 'pdf_to_set']
     >>> get_failed_registry_queues({'failed_registry_queues': []})
     []
+    >>> get_failed_registry_queues({'failed_registry_queues': None})
+    []
+    >>> get_failed_registry_queues({'failed_registry_queues': ''})
+    Traceback (most recent call last):
+      ...
+    lib.errors.QueueCheckerError: Expectation failed_registry_queues must be a list of non-empty queue names.
     >>> get_failed_registry_queues({'failed_registry_queues': 'create_jp2'})
     Traceback (most recent call last):
       ...
@@ -234,7 +240,9 @@ def get_failed_registry_queues(expectations: dict) -> list:
 
     Called by: collect_rq_data().
     """
-    queues = expectations.get('failed_registry_queues') or []
+    queues = expectations.get('failed_registry_queues')
+    if queues is None:
+        queues = []
     if not isinstance(queues, list) or not all(isinstance(queue, str) and queue for queue in queues):
         raise QueueCheckerError('Expectation failed_registry_queues must be a list of non-empty queue names.')
     result = list(dict.fromkeys(queues))
