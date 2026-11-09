@@ -14,7 +14,10 @@ export QCHKR__EXPECTATIONS_JSON='
       "worker_count": 0
     }
   ],
-  "surge_failure_limit": 0
+  "surge_failure_limit": 0,
+  "failed_registry_queues": [
+    "example_ingest"
+  ]
 }
 '
 export QCHKR__EMAIL_FROM="donotreply@example.org"

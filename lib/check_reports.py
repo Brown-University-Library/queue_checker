@@ -4,7 +4,7 @@ Builds queue-registration, worker-subscription, collection, and summary sections
 
 import os
 
-from lib.queue_evaluation import compare_queue_data, compare_worker_data, find_unserved_queues
+from lib.queue_evaluation import compare_queue_data, compare_worker_data, count_all_failures, find_unserved_queues
 from lib.report_formatting import format_check_status, format_report_header
 
 
@@ -22,7 +22,7 @@ def build_check_summary(
     queue_details = compare_queue_data(expectations_dct, data_dct)
     worker_details = compare_worker_data(expectations_dct, data_dct)
     unserved_queues = find_unserved_queues(data_dct)
-    failure_change = data_dct['failed_count'] - previous_failure_count
+    failure_change = count_all_failures(data_dct) - previous_failure_count
     collection_status = 'PARTIAL' if failed_job_details['error'] else 'OK'
     summary_lines = [
         format_report_header('CHECK SUMMARY'),
@@ -30,7 +30,7 @@ def build_check_summary(
         f'- Failed jobs: {format_check_status(evaluation_dct["failure_queue_check"])}',
         f'  Expectation: Increase must not exceed {expectations_dct["surge_failure_limit"]}',
         f'  Previous: {previous_failure_count}',
-        f'  Current: {data_dct["failed_count"]}',
+        f'  Current: {count_all_failures(data_dct)}',
         f'  Change: {failure_change}',
         '',
         f'- Worker subscriptions: {format_check_status(evaluation_dct["worker_check"])}',
