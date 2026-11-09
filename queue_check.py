@@ -51,7 +51,7 @@ def run_code(no_email: bool = False) -> None:
     """
     collection_error = None
     try:
-        data_dct = queue_data.collect_rq_data()
+        data_dct = queue_data.collect_rq_data(settings.expectations)
         assert type(data_dct) == dict
     except QueueCheckerError as error:
         collection_error = str(error)
@@ -65,7 +65,8 @@ def run_code(no_email: bool = False) -> None:
         assert type(previous_rqinfo_data) == dict
         queue_data.save_rqinfo_data(data_dct)
 
-        previous_failure_count = previous_rqinfo_data['failed_count']
+        previous_registry_counts = queue_evaluation.resolve_previous_registry_counts(previous_rqinfo_data, data_dct)
+        previous_failure_count = previous_rqinfo_data['failed_count'] + sum(previous_registry_counts.values())
         evaluation_dct = queue_evaluation.evaluate_qdata(
             previous_failure_count,
             settings.expectations,
@@ -75,8 +76,11 @@ def run_code(no_email: bool = False) -> None:
 
         failed_job_details = {'requested': False, 'jobs': [], 'error': None}
         if evaluation_dct['failure_queue_check'] == 'FAIL':
-            failure_increase = data_dct['failed_count'] - previous_failure_count
-            failed_job_details = queue_data.get_failed_job_details(failure_increase)
+            registry_increases = {
+                queue: count - previous_registry_counts[queue] for queue, count in data_dct['failed_registry_counts'].items()
+            }
+            failure_increase = data_dct['failed_count'] - previous_rqinfo_data['failed_count']
+            failed_job_details = queue_data.get_failed_job_details(failure_increase, registry_increases)
 
         all_checks_ok = {
             'worker_check': 'ok',

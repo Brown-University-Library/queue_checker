@@ -114,6 +114,46 @@ def find_unserved_queues(data_dct: dict) -> list:
     return unserved_queues
 
 
+def count_all_failures(data_dct: dict) -> int:
+    """
+    Totals the shared failed-queue count and any configured RQ 1.x failed-registry counts.
+
+    >>> count_all_failures({'failed_count': 3})
+    3
+    >>> count_all_failures({'failed_count': 3, 'failed_registry_counts': {'a': 2, 'b': 1}})
+    6
+
+    Called by: evaluate_qdata(), check_reports.build_check_summary(),
+    failed_job_reports.build_failure_queue_check_report(), and queue_check.run_code().
+    """
+    total = data_dct['failed_count'] + sum(data_dct.get('failed_registry_counts', {}).values())
+    return total
+
+
+def resolve_previous_registry_counts(previous_data: dict, data_dct: dict) -> dict:
+    """
+    Finds previous registry counts, using current counts as the baseline when none were saved.
+
+    >>> current = {'failed_registry_counts': {'a': 5, 'b': 2}}
+    >>> resolve_previous_registry_counts({'failed_count': 1}, current)
+    {'a': 5, 'b': 2}
+    >>> resolve_previous_registry_counts({'failed_registry_counts': {'a': 3}}, current)
+    {'a': 3, 'b': 2}
+    >>> resolve_previous_registry_counts({'failed_registry_counts': 'bad'}, current)
+    {'a': 5, 'b': 2}
+
+    Called by: queue_check.run_code().
+    """
+    saved_counts = previous_data.get('failed_registry_counts')
+    if not isinstance(saved_counts, dict):
+        saved_counts = {}
+    resolved = {}
+    for queue, current_count in data_dct.get('failed_registry_counts', {}).items():
+        saved = saved_counts.get(queue)
+        resolved[queue] = saved if type(saved) == int else current_count
+    return resolved
+
+
 def evaluate_qdata(previous_failed_count: int, expectations: dict, data_dct: dict) -> dict:
     """
     Evaluates the two alerting checks after complete RQ data collection.
@@ -156,6 +196,22 @@ def evaluate_qdata(previous_failed_count: int, expectations: dict, data_dct: dic
     >>> evaluate_qdata(4, expectations_data, rqinfo_data)
     {'worker_check': 'FAIL', 'failure_queue_check': 'ok'}
 
+    Registry failures count with shared-queue failures, and the previous count is the combined total:
+
+    >>> rqinfo_data = {
+    ...     'failed_count': 4,
+    ...     'failed_registry_counts': {'create_jp2': 2},
+    ...     'queues': ['failed'],
+    ...     'job_counts_by_queue': {'failed': 4},
+    ...     'workers_by_queue': {'never_used': ['server.1']},
+    ... }
+    >>> evaluate_qdata(5, expectations_data, rqinfo_data)
+    {'worker_check': 'ok', 'failure_queue_check': 'FAIL'}
+    >>> evaluate_qdata(6, expectations_data, rqinfo_data)
+    {'worker_check': 'ok', 'failure_queue_check': 'ok'}
+    >>> evaluate_qdata(9, expectations_data, rqinfo_data)
+    {'worker_check': 'ok', 'failure_queue_check': 'ok'}
+
     Called by: queue_check.run_code().
     """
     assert type(previous_failed_count) == int
@@ -167,7 +223,7 @@ def evaluate_qdata(previous_failed_count: int, expectations: dict, data_dct: dic
     worker_result = 'FAIL' if worker_problem_count else 'ok'
     log.debug(f'worker problem count, ``{worker_problem_count}``')
 
-    failure_increase = data_dct['failed_count'] - previous_failed_count
+    failure_increase = count_all_failures(data_dct) - previous_failed_count
     log.debug(f'failure_increase, ``{failure_increase}``')
     surge_failure_limit = expectations['surge_failure_limit']
     log.debug(f'surge_failure_limit, ``{surge_failure_limit}``')

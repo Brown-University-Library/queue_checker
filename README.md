@@ -85,7 +85,7 @@ The runner exits with a nonzero status when a doctest fails, which allows the de
 
 The outer `.env` uses these keys:
 
-- `QCHKR__EXPECTATIONS_JSON`: JSON containing `expected_queues`, `expected_workers`, and `surge_failure_limit`.
+- `QCHKR__EXPECTATIONS_JSON`: JSON containing `expected_queues`, `expected_workers`, `surge_failure_limit`, and optionally `failed_registry_queues`.
 - `QCHKR__EMAIL_FROM`: sender used for both the message header and SMTP envelope.
 - `QCHKR__EMAIL_HOST`: SMTP host.
 - `QCHKR__EMAIL_HOST_PORT`: SMTP port.
@@ -108,8 +108,11 @@ expectations_dict_example = {
         {'queue': 'q2', 'worker_count': 2},
     ],
     'surge_failure_limit': 10,
+    'failed_registry_queues': ['q2'],
 }
 ```
+
+`failed_registry_queues` is optional. Workers running RQ 1.x write failures to a per-queue sorted set, `rq:failed:<queue>`, instead of the shared `failed` queue, and the `rq` 0.13 used by this checker (and `rqinfo`) cannot see them. Each listed queue's registry is counted with `ZCARD` through plain redis-py and saved as `failed_registry_counts`. The failed-job check alerts when the combined increase of the shared failed queue and these registries exceeds `surge_failure_limit`. If the key is missing or empty, behavior is unchanged. If the previous-data file has no registry counts, the current counts become the baseline. A failed registry lookup produces a data-collection error. Registry job details are read from the raw job hash because RQ 1.x zlib-compresses job data that RQ 0.13 cannot decode. Do not upgrade `rq` in this repository to get this behavior.
 
 See `sample_dot_env.txt` for a complete, non-operational example. Real hostnames, addresses, queues, and other deployment values must remain outside the Git repository.
 

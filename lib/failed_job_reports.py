@@ -6,6 +6,7 @@ import datetime
 import re
 from typing import Optional
 
+from lib.queue_evaluation import count_all_failures
 from lib.report_formatting import format_check_status, format_datetime, format_report_header
 
 MAX_FAILED_JOBS_TO_SHOW = 3
@@ -93,7 +94,7 @@ def format_failed_job(job, display_number: int, displayed_count: int) -> str:
     job_id = getattr(job, 'id', None) or 'Unavailable'
     queue = getattr(job, 'origin', None) or 'Unavailable'
     try:
-        function = getattr(job, 'func_name', None) or 'Unavailable'
+        function = getattr(job, 'func_name', None) or getattr(job, 'description', None) or 'Unavailable'
     except Exception:  # noqa: BLE001 -- malformed or incompatible serialized job data can raise multiple exception types
         function = 'Unavailable'
     exception_details = extract_exception_details(getattr(job, 'exc_info', None))
@@ -175,7 +176,7 @@ def build_failure_queue_check_report(
 
     Called by: email_delivery.build_email_message().
     """
-    current_failure_count = data_dct['failed_count']
+    current_failure_count = count_all_failures(data_dct)
     failure_change = current_failure_count - previous_failure_count
     lines = [
         format_report_header(f'FAILED-JOB CHECK: {format_check_status(evaluation_dct["failure_queue_check"])}'),
