@@ -2,6 +2,8 @@
 Collects, parses, loads, and saves queue data.
 """
 
+import base64
+import binascii
 import json
 import logging
 import os
@@ -337,6 +339,35 @@ def parse_rq_timestamp(raw_value: Optional[bytes]) -> Optional[datetime]:  # noq
     return result
 
 
+def load_result_exc_info(connection, job_id: str) -> Optional[str]:  # noqa: FA100 -- keep Python 3.8-compatible union syntax
+    """
+    Reads exception text from the newest failed entry in RQ 1.x's ``rq:results:<job_id>`` stream.
+    On Redis server 5+, RQ 1.12+ stores ``exc_info`` there (base64 of zlib) instead of in the job hash.
+
+    >>> from unittest.mock import Mock
+    >>> connection = Mock()
+    >>> encoded = base64.b64encode(zlib.compress(b'ValueError: streamed'))
+    >>> connection.xrevrange.return_value = [(b'1-0', {b'type': b'2', b'exc_string': encoded})]
+    >>> load_result_exc_info(connection, 'abc')
+    'ValueError: streamed'
+    >>> connection.xrevrange.assert_called_once_with('rq:results:abc', count=10)
+    >>> connection.xrevrange.return_value = [(b'1-0', {b'type': b'1'})]
+    >>> load_result_exc_info(connection, 'abc') is None
+    True
+
+    Called by: load_registry_job().
+    """
+    result = None
+    for _entry_id, payload in connection.xrevrange(f'rq:results:{job_id}', count=10):
+        if payload.get(b'type') == b'2' and payload.get(b'exc_string'):
+            try:
+                result = zlib.decompress(base64.b64decode(payload[b'exc_string'])).decode(errors='replace')
+            except (binascii.Error, zlib.error):
+                result = None
+            break
+    return result
+
+
 def load_registry_job(connection, job_id: str, queue: str) -> SimpleNamespace:
     """
     Loads one failed registry job from its raw hash, avoiding rq 0.13 decoding of RQ 1.x data.
@@ -367,7 +398,7 @@ def load_registry_job(connection, job_id: str, queue: str) -> SimpleNamespace:
         enqueued_at=parse_rq_timestamp(fields.get(b'enqueued_at')),
         started_at=parse_rq_timestamp(fields.get(b'started_at')),
         ended_at=parse_rq_timestamp(fields.get(b'ended_at')),
-        exc_info=decode_exc_info(fields.get(b'exc_info')),
+        exc_info=decode_exc_info(fields.get(b'exc_info')) or load_result_exc_info(connection, job_id),
     )
     return job
 
@@ -380,6 +411,7 @@ def get_registry_failed_jobs(connection, queue: str, count: int) -> list:
     >>> connection = Mock()
     >>> connection.zrevrange.return_value = [b'job-2']
     >>> connection.hgetall.return_value = {b'origin': b'create_jp2'}
+    >>> connection.xrevrange.return_value = []
     >>> [job.id for job in get_registry_failed_jobs(connection, 'create_jp2', 1)]
     ['job-2']
     >>> connection.zrevrange.assert_called_once_with('rq:failed:create_jp2', 0, 0)
